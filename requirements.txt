@@ -1,0 +1,16 @@
+# 接入层骨架依赖(本期 PR)
+requests>=2.31
+websocket-client>=1.7
+python-dotenv>=1.0
+
+# 发音评测(Azure)。无 key 时不会被调用,但导入需要它;
+# 若安装环境受限,可延后安装——service.py 对缺失做了优雅降级。
+azure-cognitiveservices-speech>=1.37
+
+# 测试
+pytest>=8.0
+pytest-cov>=5.0
+
+# Web 层(后续 PR 启用)
+# flask>=3.0
+# gevent>=24.0
