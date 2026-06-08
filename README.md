@@ -38,8 +38,9 @@ pytest -q                 # 运行单测(走 Mock,不需要任何 key)
 - [x] 接入层骨架:`AIService` 统一入口 + MiniMax 对话/TTS(实测连通)+ Azure 发音评测 + Mock/降级
 - [x] 对话引擎与场景配置:`conversation.py` + Interview/Restaurant 场景,流式回复、上下文窗口、L1~L5 难度(实测多轮对话在角色内)
 - [x] 语法/表达纠错:`grammar.py` 延迟纠错,结构化「错误句→原因→推荐」,LLM 解析失败自动重试再降级规则(实测纠错精准)
+- [x] 课后总结 + 六维能力模型:`report.py` 总结(优秀表达/高频错误/推荐/建议)+ `skills.py` EWMA 更新;声学维度无数据时置 None 不臆造
 - [ ] WebSocket 实时语音通道(前端录音 + 流式播放)
-- [ ] 课后总结 / 六维能力模型
+- [ ] Flask 应用 + 前端页面
 - [ ] Dashboard
 
 ## AI 协作说明
