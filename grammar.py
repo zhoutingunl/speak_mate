@@ -5,12 +5,12 @@
 """
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, asdict, field
 from typing import Literal
 
 from ai import AIService, ChatMessage, get_service
+from jsonutil import extract_json_object as _extract_json
 
 Category = Literal["grammar", "expression", "tense", "article",
                    "preposition", "agreement"]
@@ -123,23 +123,3 @@ class GrammarChecker:
             source="mock",
             degraded=True,
         )
-
-
-def _extract_json(raw: str) -> dict | None:
-    """从模型输出里抠出第一个 JSON 对象;失败返回 None。"""
-    if not raw:
-        return None
-    # 去掉 ```json fenced 包裹
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.S)
-    candidate = fenced.group(1) if fenced else None
-    if candidate is None:
-        start = raw.find("{")
-        end = raw.rfind("}")
-        candidate = raw[start:end + 1] if 0 <= start < end else None
-    if not candidate:
-        return None
-    try:
-        data = json.loads(candidate)
-        return data if isinstance(data, dict) else None
-    except json.JSONDecodeError:
-        return None
