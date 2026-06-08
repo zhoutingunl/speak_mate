@@ -36,7 +36,7 @@ pytest -q                 # 运行单测(走 Mock,不需要任何 key)
 ## 当前进度
 
 - [x] 接入层骨架:`AIService` 统一入口 + MiniMax 对话/TTS(实测连通)+ Azure 发音评测 + Mock/降级
-- [ ] 对话引擎与场景配置
+- [x] 对话引擎与场景配置:`conversation.py` + Interview/Restaurant 场景,流式回复、上下文窗口、L1~L5 难度(实测多轮对话在角色内)
 - [ ] WebSocket 实时语音通道(前端录音 + 流式播放)
 - [ ] 纠错 / 课后总结 / 六维能力模型
 - [ ] Dashboard
