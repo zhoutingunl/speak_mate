@@ -11,6 +11,6 @@ azure-cognitiveservices-speech>=1.37
 pytest>=8.0
 pytest-cov>=5.0
 
-# Web 层(后续 PR 启用)
-# flask>=3.0
-# gevent>=24.0
+# Web 层
+flask>=3.0
+gevent>=24.0
