@@ -23,7 +23,13 @@ pip install -r requirements.txt
 cp .env.example .env      # 填入你的 key(.env 已被 gitignore)
 python scripts/check_connectivity.py   # 各外部依赖各打一发真实请求自检
 pytest -q                 # 运行单测(走 Mock,不需要任何 key)
+
+python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 ```
+
+> **用 Chrome 打开**(语音识别依赖 Web Speech API),首次允许麦克风;**按住「按住说话」** 即可开始口语对话。
+> macOS 上 5000 端口被 AirPlay 占用,故默认 5001;可用 `PORT=xxxx python app.py` 改端口。
+> 发音评测需 ffmpeg(把浏览器录音转成 16k WAV 给 Azure)。
 
 > **无 key 也能跑**:未配置某项 key 时,该能力自动进入 Mock/降级模式并明确标注,
 > 不会崩溃——方便在没有凭证时体验与评审。
@@ -39,9 +45,8 @@ pytest -q                 # 运行单测(走 Mock,不需要任何 key)
 - [x] 对话引擎与场景配置:`conversation.py` + Interview/Restaurant 场景,流式回复、上下文窗口、L1~L5 难度(实测多轮对话在角色内)
 - [x] 语法/表达纠错:`grammar.py` 延迟纠错,结构化「错误句→原因→推荐」,LLM 解析失败自动重试再降级规则(实测纠错精准)
 - [x] 课后总结 + 六维能力模型:`report.py` 总结(优秀表达/高频错误/推荐/建议)+ `skills.py` EWMA 更新;声学维度无数据时置 None 不臆造
-- [ ] WebSocket 实时语音通道(前端录音 + 流式播放)
-- [ ] Flask 应用 + 前端页面
-- [ ] Dashboard
+- [x] Flask 应用 + SPA 前端:选场景→语音对话(Web Speech ASR + 流式回复 + MiniMax TTS 播放)→ 逐轮发音评分/纠错 → 课后总结+六维(8 个接口 curl 实测通)
+- [ ] Dashboard(雷达图 + 成长曲线 + 历史持久化)
 
 ## AI 协作说明
 
