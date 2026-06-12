@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpeakMate — AI 英语口语陪练</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>🎙️ SpeakMate</h1>
+    <span class="tagline">AI 英语口语陪练</span>
+    <span id="status" class="status"></span>
+  </header>
+
+  <!-- 1. 选场景 -->
+  <section id="setup" class="panel">
+    <h2>选择训练场景</h2>
+    <div id="scenarioList" class="scenario-grid"></div>
+    <div class="difficulty">
+      <label>难度</label>
+      <input type="range" id="difficulty" min="1" max="5" value="2">
+      <span id="difficultyLabel">L2 · 日常</span>
+    </div>
+    <button id="startBtn" class="primary" disabled>开始训练</button>
+  </section>
+
+  <!-- 2. 对话 -->
+  <section id="chat" class="panel hidden">
+    <div class="chat-head">
+      <span id="chatScenario"></span>
+      <button id="endBtn" class="ghost">结束 · 课后总结</button>
+    </div>
+    <div id="messages" class="messages"></div>
+    <div class="mic-bar">
+      <button id="micBtn" class="mic">按住说话</button>
+      <span id="micHint" class="hint">用 Chrome 打开,首次需允许麦克风</span>
+    </div>
+  </section>
+
+  <!-- 3. 课后总结 -->
+  <section id="summary" class="panel hidden">
+    <h2>📊 课后总结</h2>
+    <div id="summaryBody"></div>
+    <button id="restartBtn" class="primary">再练一次</button>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
