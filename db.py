@@ -1,0 +1,156 @@
+"""SQLite 持久化层(design.md §20)。
+
+单用户 demo:所有数据归到 user_id=1。连接按操作开闭,简单且线程安全
+(Flask threaded=True 下 sqlite 连接不可跨线程共享)。
+"""
+from __future__ import annotations
+
+import json
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, date
+from pathlib import Path
+
+DB_PATH = Path(__file__).with_name("data") / "speakmate.sqlite"
+USER_ID = 1
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  scenario TEXT NOT NULL,
+  difficulty INTEGER NOT NULL,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  duration_sec INTEGER DEFAULT 0,
+  turns INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS skill_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  raw_json TEXT NOT NULL,
+  profile_json TEXT NOT NULL,
+  overall REAL
+);
+CREATE TABLE IF NOT EXISTS user_skill (
+  user_id INTEGER PRIMARY KEY,
+  profile_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS scenario_progress (
+  user_id INTEGER NOT NULL,
+  scenario TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, scenario)
+);
+CREATE TABLE IF NOT EXISTS corrections_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  session_id TEXT,
+  category TEXT,
+  created_at TEXT NOT NULL
+);
+"""
+
+
+@contextmanager
+def _conn(db_path: Path | str = DB_PATH):
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(str(db_path))
+    con.row_factory = sqlite3.Row
+    try:
+        yield con
+        con.commit()
+    finally:
+        con.close()
+
+
+def init_db(db_path: Path | str = DB_PATH) -> None:
+    with _conn(db_path) as con:
+        con.executescript(_SCHEMA)
+
+
+def _now() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+# ---------- 写入 ----------
+def create_session(session_id: str, scenario: str, difficulty: int,
+                   db_path: Path | str = DB_PATH) -> None:
+    with _conn(db_path) as con:
+        con.execute(
+            "INSERT OR REPLACE INTO sessions"
+            "(id, user_id, scenario, difficulty, started_at) VALUES (?,?,?,?,?)",
+            (session_id, USER_ID, scenario, difficulty, _now()))
+
+
+def finish_session(session_id: str, *, turns: int, raw_skills: dict,
+                   profile: dict, overall: float | None,
+                   correction_categories: list[str],
+                   db_path: Path | str = DB_PATH) -> None:
+    """会话结束:落盘 skill_report、更新 user_skill / scenario_progress / 时长。"""
+    now = _now()
+    with _conn(db_path) as con:
+        row = con.execute(
+            "SELECT started_at, scenario FROM sessions WHERE id=?",
+            (session_id,)).fetchone()
+        if row is None:
+            return
+        dur = _duration(row["started_at"], now)
+        con.execute(
+            "UPDATE sessions SET finished_at=?, duration_sec=?, turns=? WHERE id=?",
+            (now, dur, turns, session_id))
+        con.execute(
+            "INSERT INTO skill_reports"
+            "(session_id, user_id, created_at, raw_json, profile_json, overall)"
+            " VALUES (?,?,?,?,?,?)",
+            (session_id, USER_ID, now, json.dumps(raw_skills),
+             json.dumps(profile), overall))
+        con.execute(
+            "INSERT INTO user_skill(user_id, profile_json, updated_at)"
+            " VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET"
+            " profile_json=excluded.profile_json, updated_at=excluded.updated_at",
+            (USER_ID, json.dumps(profile), now))
+        con.execute(
+            "INSERT INTO scenario_progress(user_id, scenario, count)"
+            " VALUES (?,?,1) ON CONFLICT(user_id, scenario) DO UPDATE SET"
+            " count = count + 1", (USER_ID, row["scenario"]))
+        con.executemany(
+            "INSERT INTO corrections_log(user_id, session_id, category, created_at)"
+            " VALUES (?,?,?,?)",
+            [(USER_ID, session_id, c, now) for c in correction_categories])
+
+
+def get_user_skill(db_path: Path | str = DB_PATH) -> dict | None:
+    with _conn(db_path) as con:
+        row = con.execute(
+            "SELECT profile_json FROM user_skill WHERE user_id=?",
+            (USER_ID,)).fetchone()
+        return json.loads(row["profile_json"]) if row else None
+
+
+def _duration(start_iso: str, end_iso: str) -> int:
+    try:
+        return max(0, int((datetime.fromisoformat(end_iso)
+                           - datetime.fromisoformat(start_iso)).total_seconds()))
+    except ValueError:
+        return 0
+
+
+def _streak(days: list[str]) -> int:
+    """连续打卡天数:从今天往回数有训练记录的连续天数。"""
+    s = {date.fromisoformat(d) for d in days if d}
+    if not s:
+        return 0
+    today = date.today()
+    # 允许从今天或昨天起算(今天还没练也不归零)
+    cur = today if today in s else today.fromordinal(today.toordinal() - 1)
+    if cur not in s:
+        return 0
+    n = 0
+    while cur in s:
+        n += 1
+        cur = cur.fromordinal(cur.toordinal() - 1)
+    return n
