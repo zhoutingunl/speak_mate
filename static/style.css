@@ -99,5 +99,21 @@ a.status { text-decoration: none; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-row { grid-template-columns: 1fr; }
 }
+
+/* Settings */
+.set-form { display: flex; flex-direction: column; gap: 16px; margin: 18px 0; }
+.set-row label { display: block; font-size: 14px; margin-bottom: 6px; }
+.set-input { display: flex; gap: 8px; align-items: center; }
+.set-input input {
+  flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 10px 12px; font: inherit;
+}
+.src { font-size: 11px; padding: 1px 8px; border-radius: 10px; margin-left: 6px; }
+.src.user { background: rgba(70,211,154,.18); color: var(--accent2); }
+.src.env { background: rgba(108,140,255,.18); color: var(--accent); }
+.src.none { background: rgba(152,160,189,.15); color: var(--muted); }
+.set-actions { display: flex; gap: 10px; margin: 8px 0 16px; }
+button.link { background: none; color: var(--muted); border: none; padding: 4px 8px; text-decoration: underline; }
+.test-row { padding: 4px 0; font-size: 14px; }
 ul.tight { margin: 6px 0; padding-left: 20px; line-height: 1.7; }
 .advice { background: var(--card); border-radius: 10px; padding: 12px; line-height: 1.6; }

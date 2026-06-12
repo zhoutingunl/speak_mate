@@ -18,8 +18,9 @@ from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request
 
+import config
 import db
-from ai import get_service
+from ai import ChatMessage, get_service
 from conversation import ConversationEngine
 from dashboard import get_dashboard
 from grammar import GrammarChecker
@@ -29,11 +30,30 @@ from skills import DIMENSIONS, SkillProfile, update_profile
 
 app = Flask(__name__)
 
+# 先初始化库、套用用户保存的设置(Key 等),再构建接入层
+db.init_db()
+config.apply_overrides(db.get_all_settings())
+
 ai = get_service()
 engine = ConversationEngine(ai=ai)
 grammar = GrammarChecker(ai=ai)
 reporter = ReportGenerator(ai=ai)
-db.init_db()
+
+# 设置页字段定义(secret 项回显打码)
+SETTINGS_FIELDS = [
+    {"key": "MINIMAX_API_KEY", "label": "MiniMax API Key", "secret": True},
+    {"key": "MINIMAX_LLM_MODEL", "label": "MiniMax 对话模型", "secret": False},
+    {"key": "MINIMAX_TTS_MODEL", "label": "MiniMax TTS 模型", "secret": False},
+    {"key": "MINIMAX_TTS_VOICE", "label": "TTS 音色", "secret": False},
+    {"key": "AZURE_SPEECH_KEY", "label": "Azure 语音 Key", "secret": True},
+    {"key": "AZURE_SPEECH_REGION", "label": "Azure 区域", "secret": False},
+]
+
+
+def _mask(secret: str) -> str:
+    if not secret:
+        return ""
+    return (secret[:3] + "•••" + secret[-4:]) if len(secret) > 8 else "••••"
 
 # session_id -> 已发现的纠错(供课后总结聚合)
 _corrections: dict[str, list[dict]] = defaultdict(list)
@@ -203,6 +223,73 @@ def dashboard_page():
 @app.get("/api/dashboard")
 def dashboard_data():
     return jsonify(get_dashboard())
+
+
+# ---------- 设置(让用户配置自己的 Key)----------
+@app.get("/settings")
+def settings_page():
+    return render_template("settings.html")
+
+
+@app.get("/api/settings")
+def get_settings():
+    import os
+    user = db.get_all_settings()
+    fields = []
+    for f in SETTINGS_FIELDS:
+        k = f["key"]
+        eff = user.get(k) or os.getenv(k, "")
+        source = "user" if user.get(k) else ("env" if os.getenv(k) else "none")
+        item = {**f, "source": source, "configured": bool(eff)}
+        item["value"] = _mask(eff) if f["secret"] else eff
+        fields.append(item)
+    return jsonify({"fields": fields,
+                    "status": {"llm_live": ai.llm_live, "pron_live": ai.pron_live}})
+
+
+@app.post("/api/settings")
+def save_settings():
+    data = request.get_json(force=True)
+    to_set = {k: v.strip() for k, v in (data.get("set") or {}).items()
+              if k in config.SETTING_KEYS and isinstance(v, str) and v.strip()}
+    to_clear = {k: "" for k in (data.get("clear") or []) if k in config.SETTING_KEYS}
+    db.save_settings({**to_set, **to_clear})
+    config.apply_overrides(db.get_all_settings())  # 热加载
+    ai.reload()
+    return jsonify({"ok": True,
+                    "status": {"llm_live": ai.llm_live, "pron_live": ai.pron_live}})
+
+
+@app.post("/api/settings/test")
+def test_settings():
+    """用当前生效配置各打一发真实请求,验证 Key 是否可用。"""
+    return jsonify({"minimax": _test_minimax(), "azure": _test_azure()})
+
+
+def _test_minimax() -> dict:
+    if not config.minimax.ready:
+        return {"ok": False, "msg": "未配置 Key"}
+    try:
+        from ai.minimax import MiniMaxClient
+        out = MiniMaxClient(config.minimax).chat(
+            [ChatMessage("user", "Reply with: OK")], max_tokens=1500)
+        return {"ok": bool(out), "msg": (out[:40] or "空回复")}
+    except Exception as e:
+        return {"ok": False, "msg": str(e)[:140]}
+
+
+def _test_azure() -> dict:
+    if not config.azure.ready:
+        return {"ok": False, "msg": "未配置 Key"}
+    sample = Path(__file__).with_name("data") / "eval/sample.wav"
+    if not sample.exists():
+        return {"ok": None, "msg": "缺样本音频,跳过"}
+    try:
+        from ai.azure_pron import AzurePronProvider
+        s = AzurePronProvider(config.azure).score(str(sample), "I have been to Paris.")
+        return {"ok": True, "msg": f"overall={s.overall} «{s.transcript}»"}
+    except Exception as e:
+        return {"ok": False, "msg": str(e)[:140]}
 
 
 if __name__ == "__main__":
