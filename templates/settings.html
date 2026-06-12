@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpeakMate · 设置</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>⚙️ 设置</h1>
+    <span class="tagline">配置你自己的 API Key</span>
+    <a class="status" href="/">← 返回训练</a>
+  </header>
+
+  <section class="panel">
+    <p class="hint">
+      Key 仅保存在本地 SQLite(已被 git 忽略),不会上传或入库;留空表示不修改。
+      保存后即时生效,无需重启。
+    </p>
+    <div id="form" class="set-form"></div>
+    <div class="set-actions">
+      <button id="saveBtn" class="primary">保存</button>
+      <button id="testBtn" class="ghost">测试连接</button>
+    </div>
+    <div id="result"></div>
+  </section>
+
+  <script src="/static/settings.js"></script>
+</body>
+</html>

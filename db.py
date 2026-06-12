@@ -52,6 +52,11 @@ CREATE TABLE IF NOT EXISTS corrections_log (
   category TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 """
 
 
@@ -121,6 +126,30 @@ def finish_session(session_id: str, *, turns: int, raw_skills: dict,
             "INSERT INTO corrections_log(user_id, session_id, category, created_at)"
             " VALUES (?,?,?,?)",
             [(USER_ID, session_id, c, now) for c in correction_categories])
+
+
+# ---------- 设置(用户在 UI 配置的 Key 等)----------
+def get_all_settings(db_path: Path | str = DB_PATH) -> dict[str, str]:
+    with _conn(db_path) as con:
+        try:
+            rows = con.execute("SELECT key, value FROM app_settings").fetchall()
+        except sqlite3.OperationalError:
+            return {}
+        return {r["key"]: r["value"] for r in rows}
+
+
+def save_settings(values: dict[str, str], db_path: Path | str = DB_PATH) -> None:
+    """非空写入/更新;空字符串表示清除该项(删除行,回落到环境变量)。"""
+    now = _now()
+    with _conn(db_path) as con:
+        for key, val in values.items():
+            if val:
+                con.execute(
+                    "INSERT INTO app_settings(key, value, updated_at) VALUES (?,?,?)"
+                    " ON CONFLICT(key) DO UPDATE SET value=excluded.value,"
+                    " updated_at=excluded.updated_at", (key, val, now))
+            else:
+                con.execute("DELETE FROM app_settings WHERE key=?", (key,))
 
 
 def get_user_skill(db_path: Path | str = DB_PATH) -> dict | None:
