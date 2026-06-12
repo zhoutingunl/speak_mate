@@ -18,11 +18,14 @@ from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request
 
+import db
 from ai import get_service
 from conversation import ConversationEngine
+from dashboard import get_dashboard
 from grammar import GrammarChecker
 from report import ReportGenerator
 from scenarios import SCENARIOS
+from skills import DIMENSIONS, SkillProfile, update_profile
 
 app = Flask(__name__)
 
@@ -30,9 +33,12 @@ ai = get_service()
 engine = ConversationEngine(ai=ai)
 grammar = GrammarChecker(ai=ai)
 reporter = ReportGenerator(ai=ai)
+db.init_db()
 
 # session_id -> 已发现的纠错(供课后总结聚合)
 _corrections: dict[str, list[dict]] = defaultdict(list)
+# session_id -> 每轮 Azure 发音分 (pronunciation, fluency),供六维聚合
+_pron_scores: dict[str, list[tuple[float, float]]] = defaultdict(list)
 
 
 @app.get("/")
@@ -64,6 +70,8 @@ def new_session():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     _corrections.pop(session.id, None)
+    _pron_scores.pop(session.id, None)
+    db.create_session(session.id, session.scenario_key, session.difficulty)
     return jsonify({"session_id": session.id,
                     "opening": session.history[0].content})
 
@@ -125,6 +133,7 @@ def correct():
 def pronounce():
     """上传录音(任意格式)→ ffmpeg 转 16k 单声道 wav → Azure 评测。"""
     ref = (request.form.get("ref_text") or "").strip()
+    sid = request.form.get("session_id")
     if "audio" not in request.files or not ref:
         return jsonify({"error": "缺少 audio 或 ref_text"}), 400
 
@@ -141,6 +150,8 @@ def pronounce():
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             return jsonify({"error": f"音频转码失败: {e}"}), 400
         score = ai.score_pronunciation(str(wav), ref)
+    if sid and score.source == "azure" and not score.degraded:
+        _pron_scores[sid].append((score.pronunciation, score.fluency))
     return jsonify(score.to_dict())
 
 
@@ -153,13 +164,45 @@ def report():
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
     utterances = [m.content for m in session.history if m.role == "user"]
+    corrections = _corrections.get(sid, [])
     summary = reporter.summarize(
         scenario=session.scenario_key,
         user_utterances=utterances,
-        corrections=_corrections.get(sid, []),
+        corrections=corrections,
         completed=session.turns() >= 3,
     )
-    return jsonify(summary.to_dict())
+
+    # 把本次 Azure 发音分(逐轮均值)注入六维的声学维度(design.md §14)
+    pron = _pron_scores.get(sid, [])
+    if pron:
+        summary.raw_skills.pronunciation = round(sum(p for p, _ in pron) / len(pron), 1)
+        summary.raw_skills.fluency = round(sum(f for _, f in pron) / len(pron), 1)
+
+    # EWMA 更新长期画像并落盘(design.md §14)
+    prev = SkillProfile(**(db.get_user_skill() or {}))
+    updated = update_profile(prev, summary.raw_skills)
+    vals = [getattr(updated, d) for d in DIMENSIONS if getattr(updated, d) is not None]
+    overall = round(sum(vals) / len(vals), 1) if vals else None
+    db.finish_session(
+        sid, turns=session.turns(),
+        raw_skills=summary.raw_skills.to_dict(), profile=updated.to_dict(),
+        overall=overall,
+        correction_categories=[c.get("category", "grammar") for c in corrections],
+    )
+
+    out = summary.to_dict()
+    out["profile"] = updated.to_dict()  # 累计六维(供前端展示成长)
+    return jsonify(out)
+
+
+@app.get("/dashboard")
+def dashboard_page():
+    return render_template("dashboard.html")
+
+
+@app.get("/api/dashboard")
+def dashboard_data():
+    return jsonify(get_dashboard())
 
 
 if __name__ == "__main__":

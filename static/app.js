@@ -182,6 +182,7 @@ async function renderPron(container, refText, blob) {
   container.appendChild(note);
   const fd = new FormData();
   fd.append('audio', blob, 'rec.webm'); fd.append('ref_text', refText);
+  fd.append('session_id', state.sessionId);
   try {
     const s = await fetch('/api/pronounce', { method: 'POST', body: fd }).then(r => r.json());
     if (s.error) { note.remove(); return; }
