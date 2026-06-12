@@ -85,5 +85,19 @@ button.mic.rec { background: var(--bad); color: #fff; animation: pulse 1s infini
 .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
 .bar-row .v { width: 42px; text-align: right; }
 .na { color: var(--muted); font-style: italic; }
+
+/* Dashboard */
+a.status { text-decoration: none; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat { background: var(--card); border-radius: 12px; padding: 16px; text-align: center; }
+.stat .sv { font-size: 26px; font-weight: 700; color: var(--accent2); }
+.stat .sk { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.dash-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.dash-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.dash-card h3 { margin: 0 0 10px; font-size: 15px; }
+@media (max-width: 640px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-row { grid-template-columns: 1fr; }
+}
 ul.tight { margin: 6px 0; padding-left: 20px; line-height: 1.7; }
 .advice { background: var(--card); border-radius: 10px; padding: 12px; line-height: 1.6; }
