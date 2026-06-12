@@ -7,6 +7,9 @@ python-dotenv>=1.0
 # 若安装环境受限,可延后安装——service.py 对缺失做了优雅降级。
 azure-cognitiveservices-speech>=1.37
 
+# 百炼(DashScope)ASR —— 浏览器 Web Speech 的服务端兜底
+dashscope>=1.20
+
 # 测试
 pytest>=8.0
 pytest-cov>=5.0
