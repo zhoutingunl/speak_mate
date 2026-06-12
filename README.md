@@ -2,7 +2,23 @@
 
 在指定场景(面试 / 点餐 / 会议 …)下进行真实英语对话训练,提供**实时语音对话、发音评测、语法/表达纠错、课后总结与成长分析**。
 
-完整设计见 [`design.md`](design.md)。
+完整设计见 [`design.md`](design.md);Demo 录屏脚本见 [`docs/DEMO.md`](docs/DEMO.md)。
+
+## 截图
+
+> 以下均为真实运行截图(真实 AI 回复 + 真实 Azure 发音分),非示意图。
+
+| 选择场景 | 实时对话 + 发音/纠错反馈 |
+|---|---|
+| ![场景选择](docs/img/01-scenarios.png) | ![实时对话](docs/img/02-conversation.png) |
+
+| 成长 Dashboard | 设置页(配置自己的 Key) |
+|---|---|
+| ![Dashboard](docs/img/03-dashboard.png) | ![设置](docs/img/04-settings.png) |
+
+- **实时对话**:AI 全程在角色内;用户气泡下方是**真音素级发音四维分**(Azure)与**结构化纠错**(错误→原因→建议 + 整句润色)。
+- **Dashboard**:六维雷达 + 成长曲线 + 场景覆盖 + 错误分布;发音/流利来自 Azure,无数据时留空不臆造。
+- **设置页**:Key 打码回显、保存即热生效、可「测试连接」真实验证。
 
 ## 技术栈
 
