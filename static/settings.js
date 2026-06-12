@@ -72,7 +72,7 @@ async function test() {
     const icon = x.ok === true ? '✅' : (x.ok === null ? '⚠️' : '❌');
     return `<div class="test-row">${icon} <b>${name}</b> ${x.msg}</div>`;
   };
-  $('result').innerHTML = `<div class="card">${row('MiniMax', r.minimax)}${row('Azure 发音评测', r.azure)}</div>`;
+  $('result').innerHTML = `<div class="card">${row('MiniMax', r.minimax)}${row('Azure 发音评测', r.azure)}${row('百炼 ASR', r.bailian)}</div>`;
   load();
 }
 

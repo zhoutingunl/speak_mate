@@ -3,7 +3,8 @@
 const $ = (id) => document.getElementById(id);
 const state = { scenario: null, sessionId: null, recog: null, recorder: null,
                 chunks: [], transcript: '', blob: null, recogDone: false,
-                recDone: false, pronLive: false };
+                recDone: false, pronLive: false, asrLive: false,
+                webSpeech: false, useServer: false };
 
 const DIFF_LABELS = { 1: 'L1 · 入门', 2: 'L2 · 日常', 3: 'L3 · 自然',
                       4: 'L4 · 进阶', 5: 'L5 · 母语级' };
@@ -13,6 +14,7 @@ init();
 async function init() {
   const st = await fetch('/api/status').then(r => r.json()).catch(() => ({}));
   state.pronLive = !!st.pron_live;
+  state.asrLive = !!st.asr_live;
   $('status').innerHTML =
     `对话 <b class="${st.llm_live ? 'ok' : 'off'}">${st.llm_live ? '在线' : 'Mock'}</b> · ` +
     `发音评测 <b class="${st.pron_live ? 'ok' : 'off'}">${st.pron_live ? '在线' : '降级'}</b>`;
@@ -68,10 +70,23 @@ async function endSession() {
   renderSummary(r);
 }
 
-// ---------- 麦克风:Web Speech API(ASR)+ MediaRecorder(给 Azure) ----------
+// ---------- 麦克风 ----------
+// ASR 两条路:浏览器 Web Speech(主,Chrome/Edge)/ 服务端百炼(兜底,Safari/Firefox 默认)
 function setupMic() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { $('micHint').textContent = '此浏览器不支持语音识别,请用 Chrome'; }
+  state.webSpeech = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  // Chrome/Edge 且服务端 ASR 可用 → 给个「用百炼识别」开关;否则按可用性决定
+  if (state.webSpeech && state.asrLive) {
+    $('asrToggleWrap').classList.remove('hidden');
+  }
+  if (!state.webSpeech) {
+    if (state.asrLive) {
+      $('micHint').textContent = '本浏览器用百炼识别(服务端)';
+    } else {
+      $('micHint').textContent = '此浏览器不支持识别,且未配置百炼 ASR(去设置页配置)';
+      $('micBtn').disabled = true;
+    }
+  }
 
   const btn = $('micBtn');
   const start = (e) => { e.preventDefault(); beginTurn(); };
@@ -81,15 +96,21 @@ function setupMic() {
   btn.addEventListener('pointerleave', stop);
 }
 
+function serverMode() {
+  const forced = $('asrToggle') && $('asrToggle').checked;
+  return state.asrLive && (forced || !state.webSpeech);
+}
+
 async function beginTurn() {
   const btn = $('micBtn');
   btn.classList.add('rec'); btn.textContent = '松开结束';
   state.transcript = ''; state.blob = null; state.chunks = [];
   state.recogDone = false; state.recDone = false;
+  state.useServer = serverMode();
 
-  // ASR
+  // 浏览器 ASR(仅非服务端模式)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SR) {
+  if (!state.useServer && SR) {
     const recog = new SR();
     recog.lang = 'en-US'; recog.interimResults = true; recog.continuous = true;
     recog.onresult = (ev) => {
@@ -102,15 +123,23 @@ async function beginTurn() {
     state.recog = recog; recog.start();
   } else { state.recogDone = true; }
 
-  // 录音(给 Azure 评测)
+  // 录音:给发音评测用,服务端模式下也用来送百炼 ASR
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const rec = new MediaRecorder(stream);
     rec.ondataavailable = (e) => state.chunks.push(e.data);
-    rec.onstop = () => {
+    rec.onstop = async () => {
       state.blob = new Blob(state.chunks, { type: rec.mimeType });
       stream.getTracks().forEach(t => t.stop());
-      state.recDone = true; maybeProcess();
+      if (state.useServer) {
+        $('micHint').textContent = '识别中…';
+        const text = await serverTranscribe(state.blob);
+        $('micHint').textContent = state.webSpeech ? '' : '本浏览器用百炼识别(服务端)';
+        if (text) processTurn(text, state.blob);
+        else $('micHint').textContent = '没听清,请再说一遍';
+      } else {
+        state.recDone = true; maybeProcess();
+      }
     };
     state.recorder = rec; rec.start();
   } catch (err) { state.recDone = true; }
@@ -122,6 +151,16 @@ function finishTurn() {
   try { state.recog && state.recog.stop(); } catch (e) { state.recogDone = true; }
   try { state.recorder && state.recorder.state !== 'inactive' && state.recorder.stop(); }
   catch (e) { state.recDone = true; }
+}
+
+async function serverTranscribe(blob) {
+  const fd = new FormData();
+  fd.append('audio', blob, 'rec.webm');
+  try {
+    const r = await fetch('/api/transcribe', { method: 'POST', body: fd })
+      .then(r => r.json());
+    return (r.text || '').trim();
+  } catch (e) { return ''; }
 }
 
 let _processed = false;

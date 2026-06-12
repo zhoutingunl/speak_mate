@@ -21,12 +21,14 @@ class AIService:
         self._mock = MockClient()
         self._minimax = None
         self._azure = None
+        self._asr = None
         self._setup_providers()
 
     def _setup_providers(self) -> None:
         """按当前 config 构建/重建真实接入(供初始化与热重载共用)。"""
         self._minimax = None
         self._azure = None
+        self._asr = None
         if config.minimax.ready:
             try:
                 from .minimax import MiniMaxClient
@@ -43,6 +45,14 @@ class AIService:
             except Exception as e:  # pragma: no cover - 环境相关
                 log.warning("Azure 初始化失败,发音评测将降级:%s", e)
 
+        if config.bailian.ready:
+            try:
+                from .bailian_asr import BailianASRProvider
+
+                self._asr = BailianASRProvider(config.bailian)
+            except Exception as e:  # pragma: no cover - 环境相关
+                log.warning("百炼 ASR 初始化失败:%s", e)
+
     def reload(self) -> None:
         """配置变更后热重载接入(无需重启进程)。"""
         self._setup_providers()
@@ -55,6 +65,17 @@ class AIService:
     @property
     def pron_live(self) -> bool:
         return self._azure is not None
+
+    @property
+    def asr_live(self) -> bool:
+        return self._asr is not None
+
+    # ---- ASR(浏览器兜底)----
+    def transcribe(self, wav_path: str, *, language: str = "en") -> str:
+        """服务端 ASR(百炼)。无 provider 时返回空串,由调用方处理。"""
+        if self._asr is None:
+            return ""
+        return self._asr.transcribe(wav_path, language=language)
 
     # ---- 对话 ----
     def chat(self, messages: list[ChatMessage], *, system: str | None = None,

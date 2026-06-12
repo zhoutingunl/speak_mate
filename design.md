@@ -10,7 +10,7 @@
 | 定时任务 | APScheduler |
 | 对话 LLM | MiniMax 直连(`api.minimaxi.com/anthropic`,文本) |
 | TTS(AI 开口) | MiniMax 流式 TTS(`wss://api.minimaxi.com/ws/v1/t2a_v2`) |
-| ASR(用户语音→文本) | 浏览器 Web Speech API(主,在延迟关键路径)/ MiniMax STT(可选) |
+| ASR(用户语音→文本) | 浏览器 Web Speech API(Chrome/Edge 主,延迟关键路径)/ 百炼 Paraformer 兜底(Safari/Firefox 默认,Chrome 可选) |
 | 发音评测 | **Azure Pronunciation Assessment**(真·音素级 GOP) |
 | LLM 兜底 | Hermes Agent 平台(MiniMax-M3 / glm-5.1 / kimi-k2.5) |
 | 仓库 | `git@github.com:zhoutingunl/speak_mate.git` |
@@ -257,7 +257,7 @@ class AIService:
 |---|---|---|
 | 对话 LLM | MiniMax 直连(`/anthropic`,流式) | Hermes(MiniMax-M3 / glm-5.1 / kimi-k2.5) |
 | TTS | MiniMax 流式 TTS(`wss .../t2a_v2`) | 浏览器 `SpeechSynthesis`(降级) |
-| ASR | 浏览器 `Web Speech API`(本地、低延迟) | MiniMax STT(可选)/ Azure 识别结果复用 |
+| ASR | 浏览器 `Web Speech API`(Chrome/Edge,本地低延迟) | 百炼 Paraformer(服务端,Safari/Firefox 默认、Chrome 可选) |
 | **发音评测** | **Azure Pronunciation Assessment** | 透明降级:仅给 Fluency 近似 + 标注"数据不足"(见 §12.4) |
 | 纠错 / 总结 | MiniMax 或 Hermes | Hermes 跨 plan 故障转移 |
 
@@ -409,7 +409,7 @@ score_i = α * raw_i + (1 - α) * score_i_prev     # α = 0.3
 | MiniMax LLM 超时/429 | 重试一次 → 切 Hermes 兜底 → 仍失败则返回友好提示并 `ai_error` 埋点 |
 | ASR 返回空/置信度过低 | 提示"没听清,请再说一遍",不进入 LLM |
 | TTS 失败 | 回退浏览器 `SpeechSynthesis`,文本照常展示 |
-| 浏览器 ASR 不支持/识别空 | 提示换 Chrome 或"没听清,请再说一遍";可选回退 MiniMax STT |
+| 浏览器 ASR 不支持/识别空 | 非 Chrome 默认走百炼服务端 ASR;识别空则"没听清,请再说一遍" |
 | Azure 发音评测超时/无凭证 | 走 §12.4 透明降级(代理分 + UI 标注),不阻塞对话 |
 | WebSocket 断开 | 端上自动重连 + 会话续接(session_id 保持) |
 | Hermes 卡死/409 | cancel + 作废脏会话 + 重建(参照踩坑清单) |

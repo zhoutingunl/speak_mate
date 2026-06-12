@@ -57,3 +57,13 @@ def test_pronounce_missing_fields_400(client):
 def test_tts_missing_text_400(client):
     r = client.get("/api/tts")
     assert r.status_code == 400
+
+
+def test_status_reports_asr(client):
+    r = client.get("/api/status")
+    assert "asr_live" in r.get_json()
+
+
+def test_transcribe_missing_audio_400(client):
+    r = client.post("/api/transcribe", data={})
+    assert r.status_code == 400

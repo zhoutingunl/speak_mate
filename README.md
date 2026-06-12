@@ -10,7 +10,7 @@
 |---|---|
 | 对话 LLM | MiniMax(Anthropic 兼容端点) |
 | TTS(AI 开口) | MiniMax 流式 TTS(WebSocket) |
-| ASR(用户语音→文本) | 浏览器 Web Speech API |
+| ASR(用户语音→文本) | 浏览器 Web Speech API(Chrome/Edge 主) + 百炼 Paraformer 兜底(Safari/Firefox 默认,Chrome 可选) |
 | 发音评测 | Azure Pronunciation Assessment(音素级 GOP) |
 | 后端 | Python 3.11 + Flask + gevent + SQLite |
 
@@ -38,6 +38,7 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 
 - `MINIMAX_API_KEY` — 对话与 TTS([platform.minimaxi.com](https://platform.minimaxi.com))
 - `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION` — 发音评测(Azure Speech 有免费额度)
+- `DASHSCOPE_API_KEY` —(可选)百炼 ASR 兜底,非 Chrome 浏览器的语音识别([bailian.console.aliyun.com](https://bailian.console.aliyun.com))
 
 > 也可以**不改 `.env`**,直接在应用内 **⚙️ 设置页(`/settings`)** 填写自己的 Key:存本地 SQLite、保存即生效、可一键「测试连接」。设置页的值优先于环境变量。
 
@@ -49,7 +50,8 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 - [x] 课后总结 + 六维能力模型:`report.py` 总结(优秀表达/高频错误/推荐/建议)+ `skills.py` EWMA 更新;声学维度无数据时置 None 不臆造
 - [x] Flask 应用 + SPA 前端:选场景→语音对话(Web Speech ASR + 流式回复 + MiniMax TTS 播放)→ 逐轮发音评分/纠错 → 课后总结+六维(8 个接口 curl 实测通)
 - [x] Dashboard + SQLite 持久化:`/dashboard` 六维雷达 + 成长曲线 + 练习量/打卡/场景覆盖/错误分布(纯 SVG 无图表库);发音分汇入六维;接入层对 MiniMax 故障(429/超时)自动降级不崩
-- [x] 设置页 `/settings`:用户在 UI 配置自己的 Key(MiniMax/Azure),存本地 SQLite、回显打码、保存即热生效、可"测试连接"真实验证
+- [x] 设置页 `/settings`:用户在 UI 配置自己的 Key(MiniMax/Azure/百炼),存本地 SQLite、回显打码、保存即热生效、可"测试连接"真实验证
+- [x] 百炼 ASR 兜底:Safari/Firefox 默认走服务端百炼 Paraformer 转写,Chrome/Edge 可勾选切换;录音复用发音评测链路(实测转写准确)
 
 ## AI 协作说明
 

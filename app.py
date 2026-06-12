@@ -47,6 +47,7 @@ SETTINGS_FIELDS = [
     {"key": "MINIMAX_TTS_VOICE", "label": "TTS 音色", "secret": False},
     {"key": "AZURE_SPEECH_KEY", "label": "Azure 语音 Key", "secret": True},
     {"key": "AZURE_SPEECH_REGION", "label": "Azure 区域", "secret": False},
+    {"key": "DASHSCOPE_API_KEY", "label": "百炼 ASR Key(浏览器兜底)", "secret": True},
 ]
 
 
@@ -68,7 +69,39 @@ def index():
 
 @app.get("/api/status")
 def status():
-    return jsonify({"llm_live": ai.llm_live, "pron_live": ai.pron_live})
+    return jsonify({"llm_live": ai.llm_live, "pron_live": ai.pron_live,
+                    "asr_live": ai.asr_live})
+
+
+def _blob_to_wav(file_storage, dst_dir: str) -> str:
+    """把上传的任意格式录音转成 16k 单声道 WAV,返回路径。"""
+    src = Path(dst_dir) / "in"
+    wav = Path(dst_dir) / "out.wav"
+    file_storage.save(src)
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", str(src), "-ar", "16000", "-ac", "1",
+         "-sample_fmt", "s16", str(wav)],
+        check=True, capture_output=True, timeout=30)
+    return str(wav)
+
+
+@app.post("/api/transcribe")
+def transcribe():
+    """浏览器兜底 ASR(百炼):上传录音 → wav → 文本。"""
+    if "audio" not in request.files:
+        return jsonify({"error": "缺少 audio"}), 400
+    if not ai.asr_live:
+        return jsonify({"error": "服务端 ASR 未配置", "text": ""}), 503
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            wav = _blob_to_wav(request.files["audio"], d)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            return jsonify({"error": f"音频转码失败: {e}"}), 400
+        try:
+            text = ai.transcribe(wav)
+        except Exception as e:
+            return jsonify({"error": str(e)[:140], "text": ""}), 502
+    return jsonify({"text": text})
 
 
 @app.get("/api/scenarios")
@@ -158,18 +191,11 @@ def pronounce():
         return jsonify({"error": "缺少 audio 或 ref_text"}), 400
 
     with tempfile.TemporaryDirectory() as d:
-        src = Path(d) / "in"
-        wav = Path(d) / "out.wav"
-        request.files["audio"].save(src)
         try:
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", str(src), "-ar", "16000", "-ac", "1",
-                 "-sample_fmt", "s16", str(wav)],
-                check=True, capture_output=True, timeout=30,
-            )
+            wav = _blob_to_wav(request.files["audio"], d)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             return jsonify({"error": f"音频转码失败: {e}"}), 400
-        score = ai.score_pronunciation(str(wav), ref)
+        score = ai.score_pronunciation(wav, ref)
     if sid and score.source == "azure" and not score.degraded:
         _pron_scores[sid].append((score.pronunciation, score.fluency))
     return jsonify(score.to_dict())
@@ -263,7 +289,8 @@ def save_settings():
 @app.post("/api/settings/test")
 def test_settings():
     """用当前生效配置各打一发真实请求,验证 Key 是否可用。"""
-    return jsonify({"minimax": _test_minimax(), "azure": _test_azure()})
+    return jsonify({"minimax": _test_minimax(), "azure": _test_azure(),
+                    "bailian": _test_bailian()})
 
 
 def _test_minimax() -> dict:
@@ -288,6 +315,20 @@ def _test_azure() -> dict:
         from ai.azure_pron import AzurePronProvider
         s = AzurePronProvider(config.azure).score(str(sample), "I have been to Paris.")
         return {"ok": True, "msg": f"overall={s.overall} «{s.transcript}»"}
+    except Exception as e:
+        return {"ok": False, "msg": str(e)[:140]}
+
+
+def _test_bailian() -> dict:
+    if not config.bailian.ready:
+        return {"ok": False, "msg": "未配置 Key"}
+    sample = Path(__file__).with_name("data") / "eval/sample.wav"
+    if not sample.exists():
+        return {"ok": None, "msg": "缺样本音频,跳过"}
+    try:
+        from ai.bailian_asr import BailianASRProvider
+        text = BailianASRProvider(config.bailian).transcribe(str(sample))
+        return {"ok": bool(text), "msg": f"«{text}»" if text else "空转写"}
     except Exception as e:
         return {"ok": False, "msg": str(e)[:140]}
 

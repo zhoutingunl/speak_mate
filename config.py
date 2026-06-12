@@ -25,6 +25,7 @@ _PLACEHOLDER = {"", "replace-me", "your-key", "changeme"}
 SETTING_KEYS = (
     "MINIMAX_API_KEY", "MINIMAX_LLM_MODEL", "MINIMAX_TTS_MODEL", "MINIMAX_TTS_VOICE",
     "AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION",
+    "DASHSCOPE_API_KEY",
 )
 
 
@@ -70,6 +71,17 @@ class HermesConfig:
         return bool(self.base)
 
 
+@dataclass(frozen=True)
+class BailianConfig:
+    """百炼(DashScope)ASR,作为浏览器 Web Speech 的服务端兜底。"""
+    api_key: str = ""
+    asr_model: str = "paraformer-realtime-v2"
+
+    @property
+    def ready(self) -> bool:
+        return bool(self.api_key)
+
+
 def _source(overrides: dict[str, str] | None):
     """取值优先级:用户覆盖(非空) > 环境变量 > 默认。"""
     ov = overrides or {}
@@ -84,7 +96,7 @@ def _source(overrides: dict[str, str] | None):
 
 
 def build(overrides: dict[str, str] | None = None
-          ) -> tuple[MiniMaxConfig, AzureConfig, HermesConfig]:
+          ) -> tuple[MiniMaxConfig, AzureConfig, HermesConfig, BailianConfig]:
     get = _source(overrides)
     mm = MiniMaxConfig(
         base_url=get("MINIMAX_BASE_URL", "https://api.minimaxi.com/anthropic"),
@@ -96,18 +108,21 @@ def build(overrides: dict[str, str] | None = None
     az = AzureConfig(api_key=_clean(get("AZURE_SPEECH_KEY")),
                      region=get("AZURE_SPEECH_REGION", "eastasia"))
     he = HermesConfig(base=_clean(get("HERMES_BASE")))
-    return mm, az, he
+    bl = BailianConfig(api_key=_clean(get("DASHSCOPE_API_KEY")),
+                       asr_model=get("BAILIAN_ASR_MODEL", "paraformer-realtime-v2"))
+    return mm, az, he, bl
 
 
 # 模块级当前生效配置(env 为底);设置页保存后由 apply_overrides 刷新
-minimax, azure, hermes = build()
+minimax, azure, hermes, bailian = build()
 
 
 def apply_overrides(overrides: dict[str, str]) -> None:
     """用用户保存的值覆盖并刷新当前生效配置(热加载)。"""
-    global minimax, azure, hermes
-    minimax, azure, hermes = build(overrides)
+    global minimax, azure, hermes, bailian
+    minimax, azure, hermes, bailian = build(overrides)
 
 
 def status() -> dict[str, bool]:
-    return {"minimax": minimax.ready, "azure": azure.ready, "hermes": hermes.ready}
+    return {"minimax": minimax.ready, "azure": azure.ready,
+            "hermes": hermes.ready, "bailian": bailian.ready}
