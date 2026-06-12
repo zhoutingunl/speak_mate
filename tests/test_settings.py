@@ -5,21 +5,22 @@ from app import app as flask_app
 
 
 def test_build_with_override():
-    mm, az, _ = config.build({
+    mm, az, _he, bl = config.build({
         "MINIMAX_API_KEY": "abc123", "AZURE_SPEECH_KEY": "z",
-        "AZURE_SPEECH_REGION": "westus"})
+        "AZURE_SPEECH_REGION": "westus", "DASHSCOPE_API_KEY": "ds-1"})
     assert mm.api_key == "abc123" and mm.ready
     assert az.region == "westus" and az.ready
+    assert bl.api_key == "ds-1" and bl.ready
 
 
 def test_placeholder_treated_as_unset():
-    mm, _, _ = config.build({"MINIMAX_API_KEY": "replace-me"})
+    mm, *_ = config.build({"MINIMAX_API_KEY": "replace-me"})
     assert mm.api_key == "" and not mm.ready
 
 
 def test_override_empty_falls_back_to_env(monkeypatch):
     monkeypatch.setenv("MINIMAX_LLM_MODEL", "Custom-M")
-    mm, _, _ = config.build({"MINIMAX_LLM_MODEL": ""})
+    mm, *_ = config.build({"MINIMAX_LLM_MODEL": ""})
     assert mm.llm_model == "Custom-M"
 
 
