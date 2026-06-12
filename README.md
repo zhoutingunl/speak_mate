@@ -46,7 +46,7 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 - [x] 语法/表达纠错:`grammar.py` 延迟纠错,结构化「错误句→原因→推荐」,LLM 解析失败自动重试再降级规则(实测纠错精准)
 - [x] 课后总结 + 六维能力模型:`report.py` 总结(优秀表达/高频错误/推荐/建议)+ `skills.py` EWMA 更新;声学维度无数据时置 None 不臆造
 - [x] Flask 应用 + SPA 前端:选场景→语音对话(Web Speech ASR + 流式回复 + MiniMax TTS 播放)→ 逐轮发音评分/纠错 → 课后总结+六维(8 个接口 curl 实测通)
-- [ ] Dashboard(雷达图 + 成长曲线 + 历史持久化)
+- [x] Dashboard + SQLite 持久化:`/dashboard` 六维雷达 + 成长曲线 + 练习量/打卡/场景覆盖/错误分布(纯 SVG 无图表库);发音分汇入六维;接入层对 MiniMax 故障(429/超时)自动降级不崩
 
 ## AI 协作说明
 

@@ -49,3 +49,21 @@ def test_pron_degraded_when_no_azure(monkeypatch):
 def test_weighted_score():
     assert PronScore.weighted(100, 100, 100, 100) == 100.0
     assert 0 <= PronScore.weighted(50, 60, 70, 80) <= 100
+
+
+class _Boom:
+    """模拟 MiniMax 抛错(如 429 配额用尽)。"""
+    def chat(self, *a, **k): raise RuntimeError("429 quota")
+    def chat_stream(self, *a, **k): raise RuntimeError("429 quota"); yield
+    def synthesize_stream(self, *a, **k): raise RuntimeError("429 quota"); yield
+
+
+def test_chat_resilient_to_minimax_failure(monkeypatch):
+    _force_mock(monkeypatch)
+    svc = AIService()
+    svc._minimax = _Boom()  # 故障注入
+    # 不抛异常,降级到 Mock
+    assert "mock reply" in svc.chat([ChatMessage("user", "hi")])
+    assert list(svc.chat_stream([ChatMessage("user", "hi")]))
+    # TTS 失败则静默(前端兜底),不抛
+    assert list(svc.synthesize_stream("hello")) == []
