@@ -21,7 +21,12 @@ class AIService:
         self._mock = MockClient()
         self._minimax = None
         self._azure = None
+        self._setup_providers()
 
+    def _setup_providers(self) -> None:
+        """按当前 config 构建/重建真实接入(供初始化与热重载共用)。"""
+        self._minimax = None
+        self._azure = None
         if config.minimax.ready:
             try:
                 from .minimax import MiniMaxClient
@@ -37,6 +42,10 @@ class AIService:
                 self._azure = AzurePronProvider(config.azure)
             except Exception as e:  # pragma: no cover - 环境相关
                 log.warning("Azure 初始化失败,发音评测将降级:%s", e)
+
+    def reload(self) -> None:
+        """配置变更后热重载接入(无需重启进程)。"""
+        self._setup_providers()
 
     # ---- 能力可用性,用于启动日志 / 自检 ----
     @property
