@@ -21,3 +21,6 @@ data/audio/*
 .DS_Store
 .idea/
 .vscode/
+
+# 截图需纳入版本(覆盖全局 *.png 忽略)
+!docs/img/*.png
