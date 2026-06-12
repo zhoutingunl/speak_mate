@@ -50,19 +50,43 @@ class AIService:
     # ---- 对话 ----
     def chat(self, messages: list[ChatMessage], *, system: str | None = None,
              max_tokens: int = 1024) -> str:
-        client = self._minimax or self._mock
-        return client.chat(messages, system=system, max_tokens=max_tokens)
+        if self._minimax is not None:
+            try:
+                return self._minimax.chat(messages, system=system,
+                                          max_tokens=max_tokens)
+            except Exception as e:  # 429/超时/网络 → 降级,绝不向上抛(design.md §16)
+                log.warning("MiniMax chat 失败,降级 Mock:%s", e)
+        return self._mock.chat(messages, system=system, max_tokens=max_tokens)
 
     def chat_stream(self, messages: list[ChatMessage], *, system: str | None = None,
                     max_tokens: int = 1024) -> Iterator[str]:
-        client = self._minimax or self._mock
-        yield from client.chat_stream(messages, system=system, max_tokens=max_tokens)
+        if self._minimax is not None:
+            produced = False
+            try:
+                for chunk in self._minimax.chat_stream(
+                        messages, system=system, max_tokens=max_tokens):
+                    produced = True
+                    yield chunk
+                return
+            except Exception as e:
+                log.warning("MiniMax chat_stream 失败,降级:%s", e)
+                if produced:
+                    return  # 已吐过内容,不再混入 Mock
+        yield from self._mock.chat_stream(messages, system=system,
+                                          max_tokens=max_tokens)
 
     # ---- TTS ----
     def synthesize_stream(self, text: str, *, audio_format: str = "mp3",
                           sample_rate: int = 16000) -> Iterator[bytes]:
-        client = self._minimax or self._mock
-        yield from client.synthesize_stream(
+        if self._minimax is not None:
+            try:
+                yield from self._minimax.synthesize_stream(
+                    text, audio_format=audio_format, sample_rate=sample_rate)
+                return
+            except Exception as e:
+                log.warning("MiniMax TTS 失败,前端将回退浏览器合成:%s", e)
+                return  # 前端 SpeechSynthesis 兜底
+        yield from self._mock.synthesize_stream(
             text, audio_format=audio_format, sample_rate=sample_rate)
 
     # ---- 发音评测 ----

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpeakMate · Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>📊 Dashboard</h1>
+    <span class="tagline">能力成长面板</span>
+    <a class="status" href="/">← 返回训练</a>
+  </header>
+
+  <section class="panel">
+    <div id="stats" class="stat-grid"></div>
+
+    <div class="dash-row">
+      <div class="dash-card">
+        <h3>六维能力雷达</h3>
+        <div id="radar"></div>
+        <p class="hint" id="radarNote"></p>
+      </div>
+      <div class="dash-card">
+        <h3>成长曲线(综合分)</h3>
+        <div id="growth"></div>
+        <p class="hint" id="growthNote"></p>
+      </div>
+    </div>
+
+    <div class="dash-row">
+      <div class="dash-card">
+        <h3>场景覆盖率</h3>
+        <div id="coverage" class="bars"></div>
+      </div>
+      <div class="dash-card">
+        <h3>错误分布</h3>
+        <div id="errors" class="bars"></div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
