@@ -336,6 +336,11 @@ def _test_bailian() -> dict:
 if __name__ == "__main__":
     # 默认 5001:macOS 上 5000 被 ControlCenter(AirPlay)占用
     port = int(os.getenv("PORT", "5001"))
-    print("== SpeakMate ==", {"llm_live": ai.llm_live, "pron_live": ai.pron_live},
-          f"http://127.0.0.1:{port}")
-    app.run(host="127.0.0.1", port=port, threaded=True)
+    host = os.getenv("HOST", "127.0.0.1")  # 供手机访问设 0.0.0.0
+    # Android WebView 录音需安全上下文 → SPEAKMATE_HTTPS=1 开自签 HTTPS(需 cryptography)
+    ssl_ctx = "adhoc" if os.getenv("SPEAKMATE_HTTPS") else None
+    scheme = "https" if ssl_ctx else "http"
+    print("== SpeakMate ==",
+          {"llm_live": ai.llm_live, "pron_live": ai.pron_live, "asr_live": ai.asr_live},
+          f"{scheme}://{host}:{port}")
+    app.run(host=host, port=port, threaded=True, ssl_context=ssl_ctx)

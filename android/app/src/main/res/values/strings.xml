@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SpeakMate</string>
+    <string name="server_prompt">输入 SpeakMate 服务器地址</string>
+</resources>
