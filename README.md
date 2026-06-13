@@ -68,6 +68,7 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 - [x] Dashboard + SQLite 持久化:`/dashboard` 六维雷达 + 成长曲线 + 练习量/打卡/场景覆盖/错误分布(纯 SVG 无图表库);发音分汇入六维;接入层对 MiniMax 故障(429/超时)自动降级不崩
 - [x] 设置页 `/settings`:用户在 UI 配置自己的 Key(MiniMax/Azure/百炼),存本地 SQLite、回显打码、保存即热生效、可"测试连接"真实验证
 - [x] 百炼 ASR 兜底:Safari/Firefox 默认走服务端百炼 Paraformer 转写,Chrome/Edge 可勾选切换;录音复用发音评测链路(实测转写准确)
+- [x] Android App(WebView 套壳):`android/` 完整可构建工程,加载服务器、放行麦克风、自签 HTTPS;Android 无 Web Speech 时自动用百炼 ASR(见 [`android/README.md`](android/README.md))
 
 ## AI 协作说明
 
