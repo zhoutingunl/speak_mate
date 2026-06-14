@@ -152,6 +152,7 @@ async function beginTurn() {
   state.transcript = ''; state.blob = null; state.chunks = [];
   state.recogDone = false; state.recDone = false;
   state.useServer = serverMode();
+  track('voice_start', { server: state.useServer });
 
   // 浏览器 ASR(仅非服务端模式)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -193,6 +194,7 @@ async function beginTurn() {
 function finishTurn() {
   const btn = $('micBtn');
   btn.classList.remove('rec'); btn.textContent = '按住说话';
+  track('voice_finish', {});
   try { state.recog && state.recog.stop(); } catch (e) { state.recogDone = true; }
   try { state.recorder && state.recorder.state !== 'inactive' && state.recorder.stop(); }
   catch (e) { state.recDone = true; }
@@ -294,8 +296,14 @@ async function renderCorrection(container, text) {
     `<div class="fix"><span class="old">${x.original}</span> → <span class="new">${x.corrected}</span><div class="lbl">${x.reason}</div></div>`
   ).join('');
   c.innerHTML = `<span class="lbl">表达优化${r.degraded ? ' <span class="degraded">(规则)</span>' : ''}</span>${fixes}` +
-    (r.polished ? `<div class="fix">建议:<span class="new">${r.polished}</span></div>` : '');
+    (r.polished ? `<div class="fix">建议:<span class="new">${r.polished}</span></div>` : '') +
+    `<button class="link accept-btn">✓ 采纳</button>`;
   container.appendChild(c);
+  const btn = c.querySelector('.accept-btn');
+  btn.onclick = () => {
+    track('suggestion_accept', { count: r.corrections.length });
+    btn.textContent = '✓ 已采纳'; btn.disabled = true;
+  };
 }
 
 // ---------- 总结 ----------
@@ -329,6 +337,16 @@ function addBubble(who, text) {
 }
 function scrollDown() { const m = $('messages'); m.scrollTop = m.scrollHeight; }
 function fmt(v) { return v == null ? '—' : v; }
+
+// 用户行为采集(打点),fire-and-forget(design.md §19)
+function track(event, payload) {
+  try {
+    fetch('/api/track', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, payload: payload || {} }), keepalive: true,
+    });
+  } catch (e) { /* 埋点失败不影响主流程 */ }
+}
 function playTTS(text) {
   const audio = new Audio('/api/tts?text=' + encodeURIComponent(text));
   audio.play().catch(() => {

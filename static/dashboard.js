@@ -7,6 +7,10 @@ const CAT_CN = { grammar: '语法', expression: '表达', tense: '时态',
 
 load();
 async function load() {
+  fetch('/api/track', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event: 'dashboard_open' }),
+  }).catch(() => {});
   const d = await fetch('/api/dashboard').then(r => r.json());
   renderStats(d);
   renderRadar(d.current_skill);
