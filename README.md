@@ -69,6 +69,13 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 - [x] 设置页 `/settings`:用户在 UI 配置自己的 Key(MiniMax/Azure/百炼),存本地 SQLite、回显打码、保存即热生效、可"测试连接"真实验证
 - [x] 百炼 ASR 兜底:Safari/Firefox 默认走服务端百炼 Paraformer 转写,Chrome/Edge 可勾选切换;录音复用发音评测链路(实测转写准确)
 - [x] Android App(WebView 套壳):`android/` 完整可构建工程,加载服务器、放行麦克风、自签 HTTPS;Android 无 Web Speech 时自动用百炼 ASR(见 [`android/README.md`](android/README.md))
+- [x] AI 自对弈验证:`scripts/selfplay.py` 两个 AI 在同一场景互问互答,跑通对话→纠错→课后总结 + 评委评分——**无需开口即可验证对话自然度与纠错精准度**
+
+### 自对弈验证(无需开口)
+```bash
+python scripts/selfplay.py interview 4 2 A2   # 场景 轮数 难度 学习者级别
+```
+一个 AI 演场景角色、一个 AI 扮学习者(带真实错误),自动跑完整链路并由「评委」模型给自然度/角色保持打分。发音评测因无真实人声会如实跳过。
 
 ## AI 协作说明
 
