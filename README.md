@@ -71,6 +71,7 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 - [x] Android App(WebView 套壳):`android/` 完整可构建工程,加载服务器、放行麦克风、自签 HTTPS;Android 无 Web Speech 时自动用百炼 ASR(见 [`android/README.md`](android/README.md))
 - [x] AI 自对弈验证:`scripts/selfplay.py` 两个 AI 在同一场景互问互答,跑通对话→纠错→课后总结 + 评委评分——**无需开口即可验证对话自然度与纠错精准度**;网页版 `/selfplay` 可实时观看
 - [x] 多音色 / 多语言 TTS:MiniMax 9 音色 + 多语言(`language_boost`);自对弈页考官/学习者用不同音色**朗读对话**(练听力),设置页可选主 AI 音色/语言
+- [x] 自定义场景:用户填「名称 + 想练什么(可中文)」,LLM 自动生成英文角色/目标/开场白,存 SQLite 持久化;可删除(内置场景不可删)
 
 ### 自对弈验证(无需开口)
 ```bash
