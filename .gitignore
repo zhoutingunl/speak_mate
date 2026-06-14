@@ -24,3 +24,6 @@ data/audio/*
 
 # 截图需纳入版本(覆盖全局 *.png 忽略)
 !docs/img/*.png
+
+# 原始录屏不入库,只传转码后的 demo.mp4
+demo.mov
