@@ -26,6 +26,7 @@ from dashboard import get_dashboard
 from grammar import GrammarChecker
 from report import ReportGenerator
 from scenarios import SCENARIOS
+from selfplay import run_selfplay
 from skills import DIMENSIONS, SkillProfile, update_profile
 
 app = Flask(__name__)
@@ -249,6 +250,31 @@ def dashboard_page():
 @app.get("/api/dashboard")
 def dashboard_data():
     return jsonify(get_dashboard())
+
+
+# ---------- 自对弈验证(两个 AI 互问互答)----------
+@app.get("/selfplay")
+def selfplay_page():
+    return render_template("selfplay.html")
+
+
+@app.get("/api/selfplay")
+def selfplay_stream():
+    scenario = request.args.get("scenario", "interview")
+    turns = int(request.args.get("turns", 4))
+    difficulty = int(request.args.get("difficulty", 2))
+    level = request.args.get("level", "A2")
+
+    def gen():
+        try:
+            for ev in run_selfplay(ai, scenario, turns=turns,
+                                   difficulty=difficulty, level=level):
+                yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'msg': str(e)[:160]})}\n\n"
+
+    return Response(gen(), mimetype="text/event-stream",
+                    headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
 
 
 # ---------- 设置(让用户配置自己的 Key)----------
