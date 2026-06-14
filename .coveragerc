@@ -1,0 +1,16 @@
+# 覆盖率配置:统计业务模块,排除测试/脚本/虚拟环境/纯接入桩
+[run]
+source = .
+branch = True
+omit =
+    tests/*
+    scripts/*
+    .venv/*
+
+[report]
+show_missing = True
+skip_empty = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError

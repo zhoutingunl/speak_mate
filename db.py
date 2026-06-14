@@ -12,6 +12,9 @@ from datetime import datetime, date
 from pathlib import Path
 
 DB_PATH = Path(__file__).with_name("data") / "speakmate.sqlite"
+# 单用户 demo 的硬约束:所有数据归到 USER_ID=1。
+# 多用户化需:加登录鉴权 + 把 USER_ID 改为从会话 token 派生,并穿透本文件
+# 所有写入处(sessions/skill_reports/user_skill/scenario_progress/corrections_log)。
 USER_ID = 1
 
 _SCHEMA = """
