@@ -101,7 +101,7 @@ async function startSession() {
   $('chat').classList.remove('hidden');
   $('messages').innerHTML = '';
   addBubble('ai', res.opening);
-  playTTS(res.opening);
+  speak(res.opening);
 }
 
 async function endSession() {
@@ -227,11 +227,17 @@ async function processTurn(text, blob) {
   fb.className = 'feedback';
   $('messages').appendChild(fb);
 
-  // 1) 流式回复
+  // 1) 流式回复 + 句级首句优先 TTS(每凑满一句立即送播,不等整段)
   const aiBubble = addBubble('ai', '');
-  let reply = '';
-  await streamChat(text, (delta) => { reply += delta; aiBubble.textContent = reply; scrollDown(); });
-  if (reply) playTTS(reply);
+  let reply = '', buf = '';
+  await streamChat(text, (delta) => {
+    reply += delta; aiBubble.textContent = reply; scrollDown();
+    buf += delta;
+    const [sentences, rest] = drainSentences(buf);
+    buf = rest;
+    sentences.forEach(speak);
+  });
+  if (buf.trim()) speak(buf.trim());  // 收尾不完整的一句
 
   // 2) 发音评测(旁路,不阻塞对话)
   if (blob && state.pronLive) renderPron(fb, text, blob);
@@ -347,12 +353,35 @@ function track(event, payload) {
     });
   } catch (e) { /* 埋点失败不影响主流程 */ }
 }
-function playTTS(text) {
-  const audio = new Audio('/api/tts?text=' + encodeURIComponent(text));
-  audio.play().catch(() => {
+// 串行 TTS 队列:按句入队,首句完成即播,不等整段(design.md §8 首句优先)
+const tts = { queue: [], playing: false, cur: null };
+function speak(text) {
+  text = (text || '').trim();
+  if (text) { tts.queue.push(text); pumpTTS(); }
+}
+function pumpTTS() {
+  if (tts.playing || !tts.queue.length) return;
+  tts.playing = true;
+  const text = tts.queue.shift();
+  const a = new Audio('/api/tts?text=' + encodeURIComponent(text));
+  tts.cur = a;
+  const next = () => { tts.playing = false; tts.cur = null; pumpTTS(); };
+  a.onended = next;
+  a.onerror = () => {  // MiniMax 不可用 → 浏览器合成兜底
     if (window.speechSynthesis) {
       const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US';
-      speechSynthesis.speak(u);
-    }
-  });
+      u.onend = next; u.onerror = next; speechSynthesis.speak(u);
+    } else next();
+  };
+  a.play().catch(a.onerror);
+}
+// 从流式缓冲里切出完整句子(以 . ! ? 结尾),返回 [句子数组, 剩余缓冲]
+function drainSentences(buf) {
+  const out = [];
+  let m;
+  while ((m = buf.match(/^([\s\S]*?[.!?]+)(\s|$)/))) {
+    out.push(m[1].trim());
+    buf = buf.slice(m[0].length);
+  }
+  return [out, buf];
 }
