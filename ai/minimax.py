@@ -127,8 +127,15 @@ class MiniMaxClient:
             ws.send(json.dumps(task_start))
             self._ws_expect(ws, "task_started")
             ws.send(json.dumps({"event": "task_continue", "text": text}))
+            empties = 0
             while True:
-                msg = json.loads(ws.recv())
+                msg = self._ws_recv(ws)
+                if msg is None:  # 空帧/非 JSON/keepalive,跳过(有上限防死循环)
+                    empties += 1
+                    if empties > 10:
+                        break
+                    continue
+                empties = 0
                 audio_hex = msg.get("data", {}).get("audio")
                 if audio_hex:
                     yield bytes.fromhex(audio_hex)
@@ -142,10 +149,30 @@ class MiniMaxClient:
             ws.close()
 
     @staticmethod
-    def _ws_expect(ws, event: str) -> dict:
-        msg = json.loads(ws.recv())
+    def _ws_recv(ws) -> dict | None:
+        """读一帧并解析为 JSON;空帧/非 JSON 返回 None(由调用方跳过)。"""
+        try:
+            raw = ws.recv()
+        except Exception:
+            return None
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+
+    @classmethod
+    def _ws_expect(cls, ws, event: str) -> dict:
+        # 跳过空帧/keepalive,直到拿到一个 JSON 帧(最多 10 次)
+        msg = None
+        for _ in range(10):
+            msg = cls._ws_recv(ws)
+            if msg is not None:
+                break
+        if msg is None:
+            raise MiniMaxError(f"TTS 未收到有效帧(期望 {event})")
         if msg.get("event") not in (event, None):
-            # MiniMax 偶发不回 connected 事件,容忍 None;其余视为协议错误
             if msg.get("base_resp", {}).get("status_code", 0) != 0:
                 raise MiniMaxError(f"TTS 协议错误,期望 {event},收到 {msg}")
         return msg
