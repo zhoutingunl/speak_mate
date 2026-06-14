@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 import uuid
 from collections import defaultdict
 from pathlib import Path
@@ -31,6 +32,8 @@ import scenarios as scenarios_mod
 from scenarios import SCENARIOS, Scenario
 from selfplay import run_selfplay
 from skills import DIMENSIONS, SkillProfile, update_profile
+import tracking
+from tracking import timed, track
 from voices import LANGUAGES, VOICES, VOICE_IDS
 
 app = Flask(__name__)
@@ -81,8 +84,24 @@ def index():
 
 @app.get("/api/status")
 def status():
-    return jsonify({"llm_live": ai.llm_live, "pron_live": ai.pron_live,
-                    "asr_live": ai.asr_live})
+    return jsonify({"llm_live": ai.llm_live, "tts_live": ai.tts_live,
+                    "pron_live": ai.pron_live, "asr_live": ai.asr_live})
+
+
+@app.post("/api/track")
+def track_event():
+    """前端用户行为采集(打点)。"""
+    data = request.get_json(force=True)
+    ev = data.get("event")
+    if ev in tracking.EVENTS:
+        track(ev, data.get("payload") or {})
+    return jsonify({"ok": True})
+
+
+@app.get("/api/qos")
+def qos():
+    """真实运行 QoS:由 latency 埋点聚合 p50/p95/avg(design.md §17)。"""
+    return jsonify({"latency_ms": db.latency_stats(), "events": db.event_counts()})
 
 
 def _blob_to_wav(file_storage, dst_dir: str) -> str:
@@ -190,6 +209,8 @@ def new_session():
     _corrections.pop(session.id, None)
     _pron_scores.pop(session.id, None)
     db.create_session(session.id, session.scenario_key, session.difficulty)
+    track("session_start", {"scenario": session.scenario_key,
+                            "difficulty": session.difficulty})
     return jsonify({"session_id": session.id,
                     "opening": session.history[0].content})
 
@@ -207,10 +228,19 @@ def chat():
         return jsonify({"error": "空发言"}), 400
 
     def gen():
+        t0 = time.perf_counter()
+        first = True
         try:
             for chunk in engine.reply_stream(session, text):
+                if first:  # 首 token 延迟(QoS 关键指标)
+                    tracking.mark("llm_first_token",
+                                  (time.perf_counter() - t0) * 1000)
+                    first = False
                 yield f"data: {json.dumps({'delta': chunk})}\n\n"
+            tracking.mark("llm_total", (time.perf_counter() - t0) * 1000)
+            track("ai_reply", {"scenario": session.scenario_key})
         except Exception as e:  # 兜底:不让前端 hang
+            track("ai_error", {"msg": str(e)[:120]})
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
         yield f"data: {json.dumps({'done': True})}\n\n"
 
@@ -235,9 +265,16 @@ def tts():
     lang = request.args.get("lang") or None
 
     def gen():
+        t0 = time.perf_counter()
+        first = True
         try:
-            yield from ai.synthesize_stream(text, audio_format="mp3",
-                                            voice=voice, language_boost=lang)
+            for chunk in ai.synthesize_stream(text, audio_format="mp3",
+                                              voice=voice, language_boost=lang):
+                if first:  # TTS 首包延迟
+                    tracking.mark("tts_first_chunk",
+                                  (time.perf_counter() - t0) * 1000)
+                    first = False
+                yield chunk
         except Exception:
             return  # 合成失败前端会回退浏览器 SpeechSynthesis
 
@@ -252,9 +289,11 @@ def correct():
     sid, text = data.get("session_id"), (data.get("text") or "").strip()
     if not text:
         return jsonify({"error": "空发言"}), 400
-    result = grammar.check(text)
+    with timed("grammar_check"):
+        result = grammar.check(text)
     if sid and result.has_issues:
         _corrections[sid].extend(c.to_dict() for c in result.corrections)
+        track("grammar_fix", {"count": len(result.corrections)})
     return jsonify(result.to_dict())
 
 
@@ -271,9 +310,11 @@ def pronounce():
             wav = _blob_to_wav(request.files["audio"], d)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             return jsonify({"error": f"音频转码失败: {e}"}), 400
-        score = ai.score_pronunciation(wav, ref)
+        with timed("pron_roundtrip"):
+            score = ai.score_pronunciation(wav, ref)
     if sid and score.source == "azure" and not score.degraded:
         _pron_scores[sid].append((score.pronunciation, score.fluency))
+        track("pronunciation_fix", {"overall": score.overall})
     return jsonify(score.to_dict())
 
 
@@ -311,6 +352,9 @@ def report():
         overall=overall,
         correction_categories=[c.get("category", "grammar") for c in corrections],
     )
+
+    track("session_finish", {"scenario": session.scenario_key,
+                             "turns": session.turns(), "overall": overall})
 
     out = summary.to_dict()
     out["profile"] = updated.to_dict()  # 累计六维(供前端展示成长)

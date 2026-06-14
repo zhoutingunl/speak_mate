@@ -65,6 +65,12 @@ CREATE TABLE IF NOT EXISTS custom_scenarios (
   opening TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
 """
 
 
@@ -134,6 +140,60 @@ def finish_session(session_id: str, *, turns: int, raw_skills: dict,
             "INSERT INTO corrections_log(user_id, session_id, category, created_at)"
             " VALUES (?,?,?,?)",
             [(USER_ID, session_id, c, now) for c in correction_categories])
+
+
+# ---------- 埋点事件 ----------
+def add_event(event: str, payload: dict | None = None,
+              db_path: Path | str | None = None) -> None:
+    # 调用时解析 DB_PATH(默认参数会绑定旧值,测试用 monkeypatch 改 DB_PATH 才生效)
+    with _conn(db_path or DB_PATH) as con:
+        con.execute(
+            "INSERT INTO events(event, payload, created_at) VALUES (?,?,?)",
+            (event, json.dumps(payload or {}, ensure_ascii=False), _now()))
+
+
+def event_counts(db_path: Path | str = DB_PATH) -> dict[str, int]:
+    with _conn(db_path) as con:
+        try:
+            rows = con.execute(
+                "SELECT event, COUNT(*) c FROM events GROUP BY event").fetchall()
+        except sqlite3.OperationalError:
+            return {}
+        return {r["event"]: r["c"] for r in rows}
+
+
+def latency_stats(db_path: Path | str = DB_PATH) -> dict[str, dict]:
+    """按 metric 聚合 'latency' 事件的 p50/p95/avg/n(真实运行 QoS)。"""
+    with _conn(db_path) as con:
+        try:
+            rows = con.execute(
+                "SELECT payload FROM events WHERE event='latency'").fetchall()
+        except sqlite3.OperationalError:
+            return {}
+    buckets: dict[str, list[float]] = {}
+    for r in rows:
+        try:
+            p = json.loads(r["payload"])
+            buckets.setdefault(p["metric"], []).append(float(p["ms"]))
+        except (ValueError, KeyError):
+            continue
+    out = {}
+    for metric, vals in buckets.items():
+        vals.sort()
+        out[metric] = {
+            "n": len(vals),
+            "p50": _pct(vals, 50),
+            "p95": _pct(vals, 95),
+            "avg": round(sum(vals) / len(vals), 1),
+        }
+    return out
+
+
+def _pct(sorted_vals: list[float], p: int) -> float:
+    if not sorted_vals:
+        return 0.0
+    idx = min(len(sorted_vals) - 1, int(round((p / 100) * (len(sorted_vals) - 1))))
+    return round(sorted_vals[idx], 1)
 
 
 # ---------- 自定义场景 ----------

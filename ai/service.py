@@ -67,6 +67,11 @@ class AIService:
         return self._azure is not None
 
     @property
+    def tts_live(self) -> bool:
+        # TTS 与对话共用 MiniMax 客户端;客户端在即视为 TTS 路径可用
+        return self._minimax is not None
+
+    @property
     def asr_live(self) -> bool:
         return self._asr is not None
 

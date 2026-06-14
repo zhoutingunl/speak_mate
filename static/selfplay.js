@@ -54,6 +54,10 @@ function run() {
     scenario: $('scenario').value, level: $('level').value,
     difficulty: $('difficulty').value, turns: $('turns').value,
   });
+  fetch('/api/track', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event: 'selfplay_run', payload: { scenario: $('scenario').value } }),
+  }).catch(() => {});
   es = new EventSource('/api/selfplay?' + q.toString());
   es.onmessage = (e) => handle(JSON.parse(e.data));
   es.onerror = () => finish();
