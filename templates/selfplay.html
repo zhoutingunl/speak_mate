@@ -24,7 +24,12 @@
       <label>轮数 <input id="turns" type="number" min="1" max="8" value="4"></label>
       <button id="runBtn" class="primary">开始自对弈</button>
     </div>
-    <p class="hint">一个 AI 演场景角色,一个 AI 扮学习者(带真实错误);全程跑对话→纠错→课后总结,末尾由「评委」打分。无真实人声,发音评测跳过。</p>
+    <div class="sp-controls">
+      <label><input type="checkbox" id="speak" checked> 🔊 朗读对话</label>
+      <label>考官音色 <select id="tutorVoice"></select></label>
+      <label>学习者音色 <select id="learnerVoice"></select></label>
+    </div>
+    <p class="hint">一个 AI 演场景角色,一个 AI 扮学习者(带真实错误);全程跑对话→纠错→课后总结,末尾由「评委」打分。开启朗读后用不同音色读出对话(可练听力)。无真实人声,发音评测跳过。</p>
 
     <div id="stage" class="messages"></div>
     <div id="summary"></div>

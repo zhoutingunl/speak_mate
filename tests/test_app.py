@@ -67,3 +67,15 @@ def test_status_reports_asr(client):
 def test_transcribe_missing_audio_400(client):
     r = client.post("/api/transcribe", data={})
     assert r.status_code == 400
+
+
+def test_voices(client):
+    d = client.get("/api/voices").get_json()
+    assert d["voices"] and "auto" in d["languages"]
+    assert all("id" in v and "name" in v for v in d["voices"])
+
+
+def test_settings_voice_has_choices(client):
+    fields = {f["key"]: f for f in client.get("/api/settings").get_json()["fields"]}
+    assert fields["MINIMAX_TTS_VOICE"].get("choices")
+    assert fields["MINIMAX_TTS_LANGUAGE"].get("choices")

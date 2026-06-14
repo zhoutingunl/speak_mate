@@ -69,7 +69,8 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 - [x] 设置页 `/settings`:用户在 UI 配置自己的 Key(MiniMax/Azure/百炼),存本地 SQLite、回显打码、保存即热生效、可"测试连接"真实验证
 - [x] 百炼 ASR 兜底:Safari/Firefox 默认走服务端百炼 Paraformer 转写,Chrome/Edge 可勾选切换;录音复用发音评测链路(实测转写准确)
 - [x] Android App(WebView 套壳):`android/` 完整可构建工程,加载服务器、放行麦克风、自签 HTTPS;Android 无 Web Speech 时自动用百炼 ASR(见 [`android/README.md`](android/README.md))
-- [x] AI 自对弈验证:`scripts/selfplay.py` 两个 AI 在同一场景互问互答,跑通对话→纠错→课后总结 + 评委评分——**无需开口即可验证对话自然度与纠错精准度**
+- [x] AI 自对弈验证:`scripts/selfplay.py` 两个 AI 在同一场景互问互答,跑通对话→纠错→课后总结 + 评委评分——**无需开口即可验证对话自然度与纠错精准度**;网页版 `/selfplay` 可实时观看
+- [x] 多音色 / 多语言 TTS:MiniMax 9 音色 + 多语言(`language_boost`);自对弈页考官/学习者用不同音色**朗读对话**(练听力),设置页可选主 AI 音色/语言
 
 ### 自对弈验证(无需开口)
 ```bash

@@ -7,11 +7,44 @@ async function init() {
   const scenarios = await fetch('/api/scenarios').then(r => r.json());
   $('scenario').innerHTML = scenarios
     .map(s => `<option value="${s.key}">${s.name}</option>`).join('');
+
+  const { voices } = await fetch('/api/voices').then(r => r.json());
+  const opts = voices.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+  $('tutorVoice').innerHTML = opts;
+  $('learnerVoice').innerHTML = opts;
+  $('tutorVoice').value = 'English_Trustworthy_Man';
+  $('learnerVoice').value = 'English_Graceful_Lady';
+
   $('runBtn').onclick = run;
+}
+
+// ---- 朗读队列(串行播放,避免重叠)----
+const audio = { queue: [], playing: false, cur: null };
+function enqueueSpeak(text, voice) {
+  if (!$('speak').checked) return;
+  audio.queue.push({ text, voice });
+  pump();
+}
+function pump() {
+  if (audio.playing || !audio.queue.length) return;
+  audio.playing = true;
+  const { text, voice } = audio.queue.shift();
+  const a = new Audio('/api/tts?text=' + encodeURIComponent(text) +
+    '&voice=' + encodeURIComponent(voice));
+  audio.cur = a;
+  const next = () => { audio.playing = false; audio.cur = null; pump(); };
+  a.onended = next; a.onerror = next;
+  a.play().catch(next);
+}
+function stopSpeak() {
+  audio.queue = [];
+  if (audio.cur) { try { audio.cur.pause(); } catch (e) {} audio.cur = null; }
+  audio.playing = false;
 }
 
 function run() {
   if (es) es.close();
+  stopSpeak();
   $('stage').innerHTML = '';
   $('summary').innerHTML = '';
   $('runBtn').disabled = true;
@@ -37,9 +70,11 @@ let lastLearner = null;  // 纠错卡片挂到上一条学习者气泡后
 function handle(ev) {
   switch (ev.type) {
     case 'tutor':
-      bubble('ai', '🎙️ ' + ev.text); lastLearner = null; break;
+      bubble('ai', '🎙️ ' + ev.text); lastLearner = null;
+      enqueueSpeak(ev.text, $('tutorVoice').value); break;
     case 'learner':
-      lastLearner = bubble('me', '🧑 ' + ev.text); break;
+      lastLearner = bubble('me', '🧑 ' + ev.text);
+      enqueueSpeak(ev.text, $('learnerVoice').value); break;
     case 'correction':
       renderCorrection(ev); break;
     case 'summary':
