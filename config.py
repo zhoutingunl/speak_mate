@@ -24,6 +24,7 @@ _PLACEHOLDER = {"", "replace-me", "your-key", "changeme"}
 # 可被设置页覆盖的配置项(环境变量名)
 SETTING_KEYS = (
     "MINIMAX_API_KEY", "MINIMAX_LLM_MODEL", "MINIMAX_TTS_MODEL", "MINIMAX_TTS_VOICE",
+    "MINIMAX_TTS_LANGUAGE",
     "AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION",
     "DASHSCOPE_API_KEY",
 )
@@ -42,6 +43,7 @@ class MiniMaxConfig:
     llm_model: str = "MiniMax-M2"
     tts_model: str = "speech-2.6-turbo"
     tts_voice: str = "English_Trustworthy_Man"
+    tts_language: str = "auto"  # language_boost
 
     @property
     def ready(self) -> bool:
@@ -104,6 +106,7 @@ def build(overrides: dict[str, str] | None = None
         llm_model=get("MINIMAX_LLM_MODEL", "MiniMax-M2"),
         tts_model=get("MINIMAX_TTS_MODEL", "speech-2.6-turbo"),
         tts_voice=get("MINIMAX_TTS_VOICE", "English_Trustworthy_Man"),
+        tts_language=get("MINIMAX_TTS_LANGUAGE", "auto"),
     )
     az = AzureConfig(api_key=_clean(get("AZURE_SPEECH_KEY")),
                      region=get("AZURE_SPEECH_REGION", "eastasia"))

@@ -28,6 +28,7 @@ from report import ReportGenerator
 from scenarios import SCENARIOS
 from selfplay import run_selfplay
 from skills import DIMENSIONS, SkillProfile, update_profile
+from voices import LANGUAGES, VOICES, VOICE_IDS
 
 app = Flask(__name__)
 
@@ -45,7 +46,10 @@ SETTINGS_FIELDS = [
     {"key": "MINIMAX_API_KEY", "label": "MiniMax API Key", "secret": True},
     {"key": "MINIMAX_LLM_MODEL", "label": "MiniMax 对话模型", "secret": False},
     {"key": "MINIMAX_TTS_MODEL", "label": "MiniMax TTS 模型", "secret": False},
-    {"key": "MINIMAX_TTS_VOICE", "label": "TTS 音色", "secret": False},
+    {"key": "MINIMAX_TTS_VOICE", "label": "AI 音色", "secret": False,
+     "choices": [{"value": v["id"], "label": v["name"]} for v in VOICES]},
+    {"key": "MINIMAX_TTS_LANGUAGE", "label": "TTS 语言", "secret": False,
+     "choices": [{"value": x, "label": x} for x in LANGUAGES]},
     {"key": "AZURE_SPEECH_KEY", "label": "Azure 语音 Key", "secret": True},
     {"key": "AZURE_SPEECH_REGION", "label": "Azure 区域", "secret": False},
     {"key": "DASHSCOPE_API_KEY", "label": "百炼 ASR Key(浏览器兜底)", "secret": True},
@@ -154,15 +158,26 @@ def chat():
                     headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
 
 
+@app.get("/api/voices")
+def voices():
+    return jsonify({"voices": VOICES, "languages": LANGUAGES})
+
+
 @app.get("/api/tts")
 def tts():
     text = (request.args.get("text") or "").strip()
     if not text:
         return jsonify({"error": "缺少 text"}), 400
+    # 可选按请求覆盖音色/语言;音色须在白名单内
+    voice = request.args.get("voice")
+    if voice and voice not in VOICE_IDS:
+        voice = None
+    lang = request.args.get("lang") or None
 
     def gen():
         try:
-            yield from ai.synthesize_stream(text, audio_format="mp3")
+            yield from ai.synthesize_stream(text, audio_format="mp3",
+                                            voice=voice, language_boost=lang)
         except Exception:
             return  # 合成失败前端会回退浏览器 SpeechSynthesis
 

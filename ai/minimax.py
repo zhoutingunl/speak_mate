@@ -96,10 +96,26 @@ class MiniMaxClient:
 
     # ---------------- 流式 TTS ----------------
     def synthesize_stream(self, text: str, *, audio_format: str = "mp3",
-                          sample_rate: int = 16000) -> Iterator[bytes]:
-        """WebSocket 流式 TTS,逐片产出音频字节(边收边播,见 design.md §8)。"""
+                          sample_rate: int = 16000, voice: str | None = None,
+                          language_boost: str | None = None) -> Iterator[bytes]:
+        """WebSocket 流式 TTS,逐片产出音频字节(边收边播,见 design.md §8)。
+
+        voice / language_boost 缺省取配置;language_boost='auto' 视为不指定。
+        """
         # 延迟导入,未装 websocket-client 时不影响对话路径
         from websocket import create_connection
+
+        boost = language_boost or self.cfg.tts_language
+        task_start = {
+            "event": "task_start",
+            "model": self.cfg.tts_model,
+            "voice_setting": {"voice_id": voice or self.cfg.tts_voice, "speed": 1,
+                               "vol": 1, "pitch": 0},
+            "audio_setting": {"sample_rate": sample_rate, "bitrate": 128000,
+                               "format": audio_format, "channel": 1},
+        }
+        if boost and boost != "auto":
+            task_start["language_boost"] = boost
 
         url = f"wss://{self.cfg.api_host}/ws/v1/t2a_v2"
         ws = create_connection(
@@ -108,14 +124,7 @@ class MiniMaxClient:
         )
         try:
             self._ws_expect(ws, "connected_success")
-            ws.send(json.dumps({
-                "event": "task_start",
-                "model": self.cfg.tts_model,
-                "voice_setting": {"voice_id": self.cfg.tts_voice, "speed": 1,
-                                   "vol": 1, "pitch": 0},
-                "audio_setting": {"sample_rate": sample_rate, "bitrate": 128000,
-                                   "format": audio_format, "channel": 1},
-            }))
+            ws.send(json.dumps(task_start))
             self._ws_expect(ws, "task_started")
             ws.send(json.dumps({"event": "task_continue", "text": text}))
             while True:

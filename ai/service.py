@@ -107,11 +107,13 @@ class AIService:
 
     # ---- TTS ----
     def synthesize_stream(self, text: str, *, audio_format: str = "mp3",
-                          sample_rate: int = 16000) -> Iterator[bytes]:
+                          sample_rate: int = 16000, voice: str | None = None,
+                          language_boost: str | None = None) -> Iterator[bytes]:
         if self._minimax is not None:
             try:
                 yield from self._minimax.synthesize_stream(
-                    text, audio_format=audio_format, sample_rate=sample_rate)
+                    text, audio_format=audio_format, sample_rate=sample_rate,
+                    voice=voice, language_boost=language_boost)
                 return
             except Exception as e:
                 log.warning("MiniMax TTS 失败,前端将回退浏览器合成:%s", e)
