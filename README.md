@@ -4,6 +4,10 @@
 
 完整设计见 [`design.md`](design.md);Demo 录屏脚本见 [`docs/DEMO.md`](docs/DEMO.md)。
 
+## 🎬 Demo 视频
+
+▶️ **[点击观看完整演示(demo.mp4,约 100 秒)](demo.mp4)** — 真实运行录屏:选场景 / 实时语音对话 / 发音评测 / 纠错 / 课后总结 / Dashboard。
+
 ## 截图
 
 > 以下均为真实运行截图(真实 AI 回复 + 真实 Azure 发音分),非示意图。
