@@ -77,6 +77,7 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 - [x] 多音色 / 多语言 TTS:MiniMax 9 音色 + 多语言(`language_boost`);自对弈页考官/学习者用不同音色**朗读对话**(练听力),设置页可选主 AI 音色/语言
 - [x] 自定义场景:用户填「名称 + 想练什么(可中文)」,LLM 自动生成英文角色/目标/开场白,存 SQLite 持久化;可删除(内置场景不可删)
 - [x] 埋点 + QoS 实测:`tracking.py` 统一打点(会话/语音/纠错/采纳等)落 `events` 表;`perf_counter` 测关键路径,`/api/qos` 聚合 p50/p95;`scripts/benchmark.py` 跑出真实延迟见 [`docs/QoS.md`](docs/QoS.md)(首句可听 p50 ≈ 2.2s,取代早期"1 秒"估计)
+- [x] 句级"首句优先" TTS:前端边收 LLM delta 边按 `.?!` 切句,首句凑满即送 TTS 串行播放(不等整段);MiniMax 失败逐句回退浏览器合成
 
 ### 自对弈验证(无需开口)
 ```bash
