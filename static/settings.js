@@ -18,6 +18,15 @@ async function load() {
           ${f.configured ? `<button class="link" data-clear="${f.key}">清除</button>` : ''}
         </div></div>`;
     }
+    if (f.choices) {
+      const opts = f.choices.map(o =>
+        `<option value="${o.value}" ${o.value === f.value ? 'selected' : ''}>${o.label}</option>`
+      ).join('');
+      return `<div class="set-row">
+        <label>${f.label} ${tag}</label>
+        <div class="set-input"><select data-key="${f.key}">${opts}</select></div>
+      </div>`;
+    }
     return `<div class="set-row">
       <label>${f.label} ${tag}</label>
       <div class="set-input">
@@ -34,8 +43,8 @@ async function load() {
 
 function gather() {
   const set = {};
-  $('form').querySelectorAll('input[data-key]').forEach(i => {
-    if (i.value.trim()) set[i.dataset.key] = i.value.trim();
+  $('form').querySelectorAll('[data-key]').forEach(i => {
+    if (i.value && i.value.trim()) set[i.dataset.key] = i.value.trim();
   });
   return set;
 }
