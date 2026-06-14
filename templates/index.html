@@ -20,6 +20,15 @@
   <section id="setup" class="panel">
     <h2>选择训练场景</h2>
     <div id="scenarioList" class="scenario-grid"></div>
+
+    <button id="addScenarioBtn" class="ghost" style="margin-top:12px">➕ 自定义场景</button>
+    <div id="addScenarioForm" class="cs-form hidden">
+      <input id="csName" placeholder="场景名称,如:机场值机">
+      <input id="csDesc" placeholder="想练什么(可中文),如:办理登机、托运行李、问登机口">
+      <button id="csSubmit" class="primary">生成场景</button>
+      <span id="csHint" class="hint"></span>
+    </div>
+
     <div class="difficulty">
       <label>难度</label>
       <input type="range" id="difficulty" min="1" max="5" value="2">

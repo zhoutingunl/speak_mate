@@ -32,8 +32,19 @@ h2 { font-size: 18px; }
 }
 .scenario:hover { border-color: var(--line); }
 .scenario.sel { border-color: var(--accent); }
+.scenario { position: relative; }
 .scenario .name { font-weight: 600; margin-bottom: 6px; }
 .scenario .goal { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.cs-del {
+  position: absolute; top: 6px; right: 6px; background: transparent;
+  color: var(--muted); border: none; padding: 2px 6px; font-size: 13px;
+}
+.cs-del:hover { color: var(--bad); }
+.cs-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.cs-form input {
+  flex: 1; min-width: 200px; background: var(--card); border: 1px solid var(--line);
+  color: var(--text); border-radius: 8px; padding: 10px 12px; font: inherit;
+}
 
 .difficulty { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
 .difficulty input { flex: 1; }

@@ -39,6 +39,20 @@ def test_start_session_bad_scenario(client):
     assert "error" in r.get_json()
 
 
+def test_scenarios_have_custom_flag(client):
+    assert all("custom" in s for s in client.get("/api/scenarios").get_json())
+
+
+def test_add_scenario_requires_name(client):
+    r = client.post("/api/scenarios", json={"description": "x"})
+    assert r.status_code == 400
+
+
+def test_delete_builtin_scenario_rejected(client):
+    r = client.delete("/api/scenarios/interview")
+    assert r.status_code == 400
+
+
 def test_chat_unknown_session_404(client):
     r = client.post("/api/chat", json={"session_id": "nope", "text": "hi"})
     assert r.status_code == 404
