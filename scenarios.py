@@ -23,6 +23,7 @@ class Scenario:
     role: str          # AI 扮演的角色
     goal: str          # 本场景训练目标(给用户看)
     opening: str       # AI 的开场白(用户进入即可见/听到)
+    custom: bool = False  # 用户自定义(可删除)
 
     def system_prompt(self, difficulty: int = 2) -> str:
         level = _DIFFICULTY.get(difficulty, _DIFFICULTY[2])
@@ -64,3 +65,17 @@ def get_scenario(key: str) -> Scenario:
     except KeyError:
         raise ValueError(
             f"未知场景 {key!r};可用:{', '.join(SCENARIOS)}") from None
+
+
+def register(scenario: Scenario) -> None:
+    """注册/覆盖场景(用于加载自定义场景到内存注册表)。"""
+    SCENARIOS[scenario.key] = scenario
+
+
+def remove(key: str) -> None:
+    """移除自定义场景(内置场景不可删)。"""
+    sc = SCENARIOS.get(key)
+    if sc and sc.custom:
+        del SCENARIOS[key]
+    else:
+        raise ValueError("内置场景不可删除" if sc else f"场景不存在:{key}")

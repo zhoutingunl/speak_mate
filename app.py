@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import tempfile
+import uuid
 from collections import defaultdict
 from pathlib import Path
 
@@ -24,8 +25,10 @@ from ai import ChatMessage, get_service
 from conversation import ConversationEngine
 from dashboard import get_dashboard
 from grammar import GrammarChecker
+from jsonutil import extract_json_object
 from report import ReportGenerator
-from scenarios import SCENARIOS
+import scenarios as scenarios_mod
+from scenarios import SCENARIOS, Scenario
 from selfplay import run_selfplay
 from skills import DIMENSIONS, SkillProfile, update_profile
 from voices import LANGUAGES, VOICES, VOICE_IDS
@@ -35,6 +38,10 @@ app = Flask(__name__)
 # 先初始化库、套用用户保存的设置(Key 等),再构建接入层
 db.init_db()
 config.apply_overrides(db.get_all_settings())
+
+# 载入用户自定义场景到内存注册表
+for _s in db.get_custom_scenarios():
+    scenarios_mod.register(Scenario(custom=True, **_s))
 
 ai = get_service()
 engine = ConversationEngine(ai=ai)
@@ -112,9 +119,62 @@ def transcribe():
 @app.get("/api/scenarios")
 def scenarios():
     return jsonify([
-        {"key": s.key, "name": s.name, "goal": s.goal, "opening": s.opening}
+        {"key": s.key, "name": s.name, "goal": s.goal, "opening": s.opening,
+         "custom": s.custom}
         for s in SCENARIOS.values()
     ])
+
+
+@app.post("/api/scenarios")
+def add_scenario():
+    """用户给「名称 + 想练什么(可中文)」,LLM 生成英文角色/目标/开场白。"""
+    data = request.get_json(force=True)
+    name = (data.get("name") or "").strip()
+    desc = (data.get("description") or "").strip()
+    if not name:
+        return jsonify({"error": "缺少场景名称"}), 400
+
+    role, goal, opening = _generate_scenario(name, desc)
+    key = "custom_" + uuid.uuid4().hex[:8]
+    db.add_custom_scenario(key, name, role, goal, opening)
+    sc = Scenario(key=key, name=name, role=role, goal=goal, opening=opening,
+                  custom=True)
+    scenarios_mod.register(sc)
+    return jsonify({"key": key, "name": name, "goal": goal, "opening": opening,
+                    "custom": True})
+
+
+@app.delete("/api/scenarios/<key>")
+def delete_scenario(key):
+    try:
+        scenarios_mod.remove(key)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    db.delete_custom_scenario(key)
+    return jsonify({"ok": True})
+
+
+def _generate_scenario(name: str, desc: str) -> tuple[str, str, str]:
+    """LLM 生成 role/goal/opening;失败则给合理兜底。"""
+    prompt = (
+        "Design an English speaking-practice role-play scenario. "
+        f"Scenario name: {name}\n"
+        f"What the learner wants to practice: {desc or name}\n"
+        "Reply with STRICT JSON only:\n"
+        '{"role": "who the AI plays, English, e.g. \'a friendly airport '
+        'check-in agent\'", "goal": "one-sentence English learning goal", '
+        '"opening": "the AI\'s natural first line to start, English, 1-2 sentences"}'
+    )
+    try:
+        data = extract_json_object(
+            ai.chat([ChatMessage("user", prompt)], max_tokens=3072)) or {}
+    except Exception:
+        data = {}
+    role = (data.get("role") or f"a helpful partner for: {name}").strip()
+    goal = (data.get("goal") or (desc or f"Practice English in: {name}")).strip()
+    opening = (data.get("opening")
+               or "Hi! Let's practice. Shall we begin?").strip()
+    return role, goal, opening
 
 
 @app.post("/api/session")

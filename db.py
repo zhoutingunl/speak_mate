@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS custom_scenarios (
+  key TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  goal TEXT NOT NULL,
+  opening TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 """
 
 
@@ -126,6 +134,32 @@ def finish_session(session_id: str, *, turns: int, raw_skills: dict,
             "INSERT INTO corrections_log(user_id, session_id, category, created_at)"
             " VALUES (?,?,?,?)",
             [(USER_ID, session_id, c, now) for c in correction_categories])
+
+
+# ---------- 自定义场景 ----------
+def add_custom_scenario(key: str, name: str, role: str, goal: str,
+                        opening: str, db_path: Path | str = DB_PATH) -> None:
+    with _conn(db_path) as con:
+        con.execute(
+            "INSERT OR REPLACE INTO custom_scenarios"
+            "(key, name, role, goal, opening, created_at) VALUES (?,?,?,?,?,?)",
+            (key, name, role, goal, opening, _now()))
+
+
+def get_custom_scenarios(db_path: Path | str = DB_PATH) -> list[dict]:
+    with _conn(db_path) as con:
+        try:
+            rows = con.execute(
+                "SELECT key, name, role, goal, opening FROM custom_scenarios "
+                "ORDER BY created_at").fetchall()
+        except sqlite3.OperationalError:
+            return []
+        return [dict(r) for r in rows]
+
+
+def delete_custom_scenario(key: str, db_path: Path | str = DB_PATH) -> None:
+    with _conn(db_path) as con:
+        con.execute("DELETE FROM custom_scenarios WHERE key=?", (key,))
 
 
 # ---------- 设置(用户在 UI 配置的 Key 等)----------
