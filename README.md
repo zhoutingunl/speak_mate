@@ -1,5 +1,9 @@
 # SpeakMate — AI 英语口语陪练
 
+![CI](https://github.com/zhoutingunl/speak_mate/actions/workflows/ci.yml/badge.svg)
+![coverage](coverage.svg)
+![tests](https://img.shields.io/badge/tests-76%20passed-brightgreen)
+
 在指定场景(面试 / 点餐 / 会议 …)下进行真实英语对话训练,提供**实时语音对话、发音评测、语法/表达纠错、课后总结与成长分析**。
 
 完整设计见 [`design.md`](design.md);Demo 录屏脚本见 [`docs/DEMO.md`](docs/DEMO.md)。
@@ -43,6 +47,7 @@ pip install -r requirements.txt
 cp .env.example .env      # 填入你的 key(.env 已被 gitignore)
 python scripts/check_connectivity.py   # 各外部依赖各打一发真实请求自检
 pytest -q                 # 运行单测(走 Mock,不需要任何 key)
+pytest --cov              # 带覆盖率(配置见 .coveragerc,当前 ~70%)
 
 python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 ```
@@ -78,6 +83,7 @@ python app.py             # 启动 Web 应用,默认 http://127.0.0.1:5001
 - [x] 自定义场景:用户填「名称 + 想练什么(可中文)」,LLM 自动生成英文角色/目标/开场白,存 SQLite 持久化;可删除(内置场景不可删)
 - [x] 埋点 + QoS 实测:`tracking.py` 统一打点(会话/语音/纠错/采纳等)落 `events` 表;`perf_counter` 测关键路径,`/api/qos` 聚合 p50/p95;`scripts/benchmark.py` 跑出真实延迟见 [`docs/QoS.md`](docs/QoS.md)(首句可听 p50 ≈ 2.2s,取代早期"1 秒"估计)
 - [x] 句级"首句优先" TTS:前端边收 LLM delta 边按 `.?!` 切句,首句凑满即送 TTS 串行播放(不等整段);MiniMax 失败逐句回退浏览器合成
+- [x] 测试沉淀:`.coveragerc` + 覆盖率 badge(76 测试 / 70%)+ GitHub Actions CI(`pytest --cov`,无 key 自动跳过集成测试)
 
 ### 自对弈验证(无需开口)
 ```bash
