@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpeakMate · AI 自对弈</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>🤖 AI 自对弈</h1>
+    <span class="tagline">两个 AI 同场景互问互答 · 验证效果</span>
+    <a class="status" href="/">← 返回训练</a>
+  </header>
+
+  <section class="panel">
+    <div class="sp-controls">
+      <label>场景 <select id="scenario"></select></label>
+      <label>学习者 <select id="level">
+        <option>A1</option><option selected>A2</option><option>B1</option>
+        <option>B2</option><option>C1</option>
+      </select></label>
+      <label>难度 <input id="difficulty" type="number" min="1" max="5" value="2"></label>
+      <label>轮数 <input id="turns" type="number" min="1" max="8" value="4"></label>
+      <button id="runBtn" class="primary">开始自对弈</button>
+    </div>
+    <p class="hint">一个 AI 演场景角色,一个 AI 扮学习者(带真实错误);全程跑对话→纠错→课后总结,末尾由「评委」打分。无真实人声,发音评测跳过。</p>
+
+    <div id="stage" class="messages"></div>
+    <div id="summary"></div>
+  </section>
+
+  <script src="/static/selfplay.js"></script>
+</body>
+</html>

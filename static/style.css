@@ -116,5 +116,14 @@ a.status { text-decoration: none; }
 .set-actions { display: flex; gap: 10px; margin: 8px 0 16px; }
 button.link { background: none; color: var(--muted); border: none; padding: 4px 8px; text-decoration: underline; }
 .test-row { padding: 4px 0; font-size: 14px; }
+
+/* Self-play */
+.sp-controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; }
+.sp-controls label { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.sp-controls select, .sp-controls input {
+  background: var(--card); border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 7px 10px; font: inherit;
+}
+.sp-controls input[type=number] { width: 64px; }
 ul.tight { margin: 6px 0; padding-left: 20px; line-height: 1.7; }
 .advice { background: var(--card); border-radius: 10px; padding: 12px; line-height: 1.6; }
