@@ -19,26 +19,71 @@ async function init() {
     `对话 <b class="${st.llm_live ? 'ok' : 'off'}">${st.llm_live ? '在线' : 'Mock'}</b> · ` +
     `发音评测 <b class="${st.pron_live ? 'ok' : 'off'}">${st.pron_live ? '在线' : '降级'}</b>`;
 
-  const scenarios = await fetch('/api/scenarios').then(r => r.json());
-  const grid = $('scenarioList');
-  scenarios.forEach(sc => {
-    const el = document.createElement('div');
-    el.className = 'scenario';
-    el.innerHTML = `<div class="name">${sc.name}</div><div class="goal">${sc.goal}</div>`;
-    el.onclick = () => {
-      document.querySelectorAll('.scenario').forEach(n => n.classList.remove('sel'));
-      el.classList.add('sel');
-      state.scenario = sc;
-      $('startBtn').disabled = false;
-    };
-    grid.appendChild(el);
-  });
+  await loadScenarios();
+  setupCustomScenario();
 
   $('difficulty').oninput = (e) => $('difficultyLabel').textContent = DIFF_LABELS[e.target.value];
   $('startBtn').onclick = startSession;
   $('endBtn').onclick = endSession;
   $('restartBtn').onclick = () => location.reload();
   setupMic();
+}
+
+async function loadScenarios(selectKey) {
+  const scenarios = await fetch('/api/scenarios').then(r => r.json());
+  const grid = $('scenarioList');
+  grid.innerHTML = '';
+  scenarios.forEach(sc => {
+    const el = document.createElement('div');
+    el.className = 'scenario';
+    const del = sc.custom
+      ? `<button class="cs-del" title="删除" data-key="${sc.key}">✕</button>` : '';
+    el.innerHTML = `${del}<div class="name">${sc.name}</div>` +
+      `<div class="goal">${sc.goal}</div>`;
+    el.onclick = (e) => {
+      if (e.target.classList.contains('cs-del')) return;
+      document.querySelectorAll('.scenario').forEach(n => n.classList.remove('sel'));
+      el.classList.add('sel');
+      state.scenario = sc;
+      $('startBtn').disabled = false;
+    };
+    grid.appendChild(el);
+    if (sc.key === selectKey) el.click();
+  });
+  grid.querySelectorAll('.cs-del').forEach(b =>
+    b.onclick = () => deleteScenario(b.dataset.key));
+}
+
+function setupCustomScenario() {
+  $('addScenarioBtn').onclick = () =>
+    $('addScenarioForm').classList.toggle('hidden');
+  $('csSubmit').onclick = async () => {
+    const name = $('csName').value.trim();
+    const description = $('csDesc').value.trim();
+    if (!name) { $('csHint').textContent = '请填场景名称'; return; }
+    $('csSubmit').disabled = true;
+    $('csHint').textContent = 'AI 正在生成场景…';
+    try {
+      const sc = await fetch('/api/scenarios', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description }),
+      }).then(r => r.json());
+      if (sc.error) { $('csHint').textContent = sc.error; return; }
+      $('csName').value = ''; $('csDesc').value = '';
+      $('addScenarioForm').classList.add('hidden');
+      $('csHint').textContent = '';
+      await loadScenarios(sc.key);  // 刷新并自动选中新场景
+    } finally {
+      $('csSubmit').disabled = false;
+    }
+  };
+}
+
+async function deleteScenario(key) {
+  if (!confirm('删除这个自定义场景?')) return;
+  await fetch('/api/scenarios/' + encodeURIComponent(key), { method: 'DELETE' });
+  state.scenario = null; $('startBtn').disabled = true;
+  await loadScenarios();
 }
 
 // ---------- 会话 ----------
