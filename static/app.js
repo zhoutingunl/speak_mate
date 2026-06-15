@@ -179,10 +179,14 @@ async function beginTurn() {
       stream.getTracks().forEach(t => t.stop());
       if (state.useServer) {
         $('micHint').textContent = '识别中…';
+        state.transcribeError = '';
         const text = await serverTranscribe(state.blob);
-        $('micHint').textContent = state.webSpeech ? '' : '本浏览器用百炼识别(服务端)';
-        if (text) processTurn(text, state.blob);
-        else $('micHint').textContent = '没听清,请再说一遍';
+        if (text) {
+          $('micHint').textContent = state.webSpeech ? '' : '本浏览器用百炼识别(服务端)';
+          processTurn(text, state.blob);
+        } else {  // 透出真实原因(未配置/服务异常),而非一律"没听清"
+          $('micHint').textContent = state.transcribeError || '没听清,请再说一遍';
+        }
       } else {
         state.recDone = true; maybeProcess();
       }
@@ -206,8 +210,9 @@ async function serverTranscribe(blob) {
   try {
     const r = await fetch('/api/transcribe', { method: 'POST', body: fd })
       .then(r => r.json());
+    if (r.error) state.transcribeError = r.error;   // 透出后端原因
     return (r.text || '').trim();
-  } catch (e) { return ''; }
+  } catch (e) { state.transcribeError = '识别服务连接失败'; return ''; }
 }
 
 let _processed = false;
@@ -227,29 +232,39 @@ async function processTurn(text, blob) {
   fb.className = 'feedback';
   $('messages').appendChild(fb);
 
-  // 1) 流式回复 + 句级首句优先 TTS(每凑满一句立即送播,不等整段)
-  const aiBubble = addBubble('ai', '');
-  let reply = '', buf = '';
-  await streamChat(text, (delta) => {
-    reply += delta; aiBubble.textContent = reply; scrollDown();
-    buf += delta;
-    const [sentences, rest] = drainSentences(buf);
-    buf = rest;
-    sentences.forEach(speak);
-  });
-  if (buf.trim()) speak(buf.trim());  // 收尾不完整的一句
-
-  // 2) 发音评测(旁路,不阻塞对话)
-  if (blob && state.pronLive) renderPron(fb, text, blob);
-  // 3) 延迟纠错
+  // 1) 纠错 + 发音评测:旁路并行,立刻开始(填满 AI 思考的空窗,改善"纠错时机")
   renderCorrection(fb, text);
+  if (blob && state.pronLive) renderPron(fb, text, blob);
+
+  // 2) 流式回复 + 句级首句优先 TTS(每凑满一句立即送播,不等整段)
+  const aiBubble = addBubble('ai', '');
+  let reply = '', buf = '', errored = false;
+  await streamChat(text,
+    (delta) => {
+      reply += delta; aiBubble.textContent = reply; scrollDown();
+      buf += delta;
+      const [sentences, rest] = drainSentences(buf);
+      buf = rest;
+      sentences.forEach(speak);
+    },
+    (err) => {  // 出错透出,不再让 AI 哑火
+      errored = true;
+      aiBubble.classList.add('bubble-err');
+      aiBubble.textContent = '⚠️ AI 回复失败:' + err + '(请重试)';
+      scrollDown();
+    });
+  if (!errored && buf.trim()) speak(buf.trim());  // 收尾不完整的一句
 }
 
-function streamChat(text, onDelta) {
+function streamChat(text, onDelta, onError) {
   return fetch('/api/chat', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: state.sessionId, text }),
   }).then(async (resp) => {
+    if (!resp.ok) {                       // 4xx/5xx:透出而非静默
+      const e = await resp.json().catch(() => ({}));
+      if (onError) onError(e.error || ('HTTP ' + resp.status)); return;
+    }
     const reader = resp.body.getReader();
     const dec = new TextDecoder();
     let buf = '';
@@ -263,9 +278,10 @@ function streamChat(text, onDelta) {
         if (!line) continue;
         const evt = JSON.parse(line.slice(5).trim());
         if (evt.delta) onDelta(evt.delta);
+        else if (evt.error && onError) onError(evt.error);  // SSE 错误帧必须消费
       }
     }
-  });
+  }).catch((e) => { if (onError) onError('网络中断:' + e.message); });
 }
 
 async function renderPron(container, refText, blob) {
