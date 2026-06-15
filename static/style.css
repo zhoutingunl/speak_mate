@@ -71,6 +71,7 @@ button.mic.rec { background: var(--bad); color: #fff; animation: pulse 1s infini
 .bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; }
 .bubble.ai { background: var(--card); align-self: flex-start; border-bottom-left-radius: 4px; }
 .bubble.me { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.bubble.bubble-err { background: rgba(255,107,107,.15); color: var(--bad); border: 1px solid var(--bad); }
 
 .feedback { align-self: flex-end; max-width: 80%; font-size: 13px; }
 .card {
