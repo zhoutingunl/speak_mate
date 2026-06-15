@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 # 难度梯度提示(design.md §11),注入 system prompt
 _DIFFICULTY = {
@@ -24,6 +25,8 @@ class Scenario:
     goal: str          # 本场景训练目标(给用户看)
     opening: str       # AI 的开场白(用户进入即可见/听到)
     custom: bool = False  # 用户自定义(可删除)
+    # 来源标注(诚实):builtin=内置,llm=LLM 真生成,mock=LLM 失败后的默认模板
+    generated_by: Literal["builtin", "llm", "mock"] = "builtin"
 
     def system_prompt(self, difficulty: int = 2) -> str:
         level = _DIFFICULTY.get(difficulty, _DIFFICULTY[2])
@@ -55,6 +58,13 @@ SCENARIOS: dict[str, Scenario] = {
         role="a warm waiter at a casual Western restaurant",
         goal="Practice ordering food, asking about the menu, and handling small talk while dining out.",
         opening="Good evening! Welcome. Have you had a chance to look at the menu, or can I get you started with something to drink?",
+    ),
+    "meeting": Scenario(
+        key="meeting",
+        name="商务会议",
+        role="a friendly colleague leading a short project status meeting",
+        goal="Practice giving project updates, sharing opinions, agreeing/disagreeing, and discussing next steps in a workplace meeting.",
+        opening="Morning! Thanks for joining. Let's start with a quick update — how is your part of the project going so far?",
     ),
 }
 

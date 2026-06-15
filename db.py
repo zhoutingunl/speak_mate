@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS custom_scenarios (
   role TEXT NOT NULL,
   goal TEXT NOT NULL,
   opening TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  generated_by TEXT NOT NULL DEFAULT 'llm'
 );
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,6 +93,12 @@ def _conn(db_path: Path | str = DB_PATH):
 def init_db(db_path: Path | str = DB_PATH) -> None:
     with _conn(db_path) as con:
         con.executescript(_SCHEMA)
+        # 旧库迁移:补 generated_by 列(sqlite 无 IF NOT EXISTS 列,失败即已存在)
+        try:
+            con.execute("ALTER TABLE custom_scenarios "
+                        "ADD COLUMN generated_by TEXT NOT NULL DEFAULT 'llm'")
+        except sqlite3.OperationalError:
+            pass
 
 
 def _now() -> str:
@@ -200,21 +207,23 @@ def _pct(sorted_vals: list[float], p: int) -> float:
 
 
 # ---------- 自定义场景 ----------
-def add_custom_scenario(key: str, name: str, role: str, goal: str,
-                        opening: str, db_path: Path | str = DB_PATH) -> None:
+def add_custom_scenario(key: str, name: str, role: str, goal: str, opening: str,
+                        generated_by: str = "llm",
+                        db_path: Path | str = DB_PATH) -> None:
     with _conn(db_path) as con:
         con.execute(
             "INSERT OR REPLACE INTO custom_scenarios"
-            "(key, name, role, goal, opening, created_at) VALUES (?,?,?,?,?,?)",
-            (key, name, role, goal, opening, _now()))
+            "(key, name, role, goal, opening, created_at, generated_by)"
+            " VALUES (?,?,?,?,?,?,?)",
+            (key, name, role, goal, opening, _now(), generated_by))
 
 
 def get_custom_scenarios(db_path: Path | str = DB_PATH) -> list[dict]:
     with _conn(db_path) as con:
         try:
             rows = con.execute(
-                "SELECT key, name, role, goal, opening FROM custom_scenarios "
-                "ORDER BY created_at").fetchall()
+                "SELECT key, name, role, goal, opening, generated_by "
+                "FROM custom_scenarios ORDER BY created_at").fetchall()
         except sqlite3.OperationalError:
             return []
         return [dict(r) for r in rows]

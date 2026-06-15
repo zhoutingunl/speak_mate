@@ -38,7 +38,9 @@ async function loadScenarios(selectKey) {
     el.className = 'scenario';
     const del = sc.custom
       ? `<button class="cs-del" title="删除" data-key="${sc.key}">✕</button>` : '';
-    el.innerHTML = `${del}<div class="name">${sc.name}</div>` +
+    const tag = sc.generated_by === 'mock'
+      ? ' <span class="degraded">(默认模板·LLM 未生成)</span>' : '';
+    el.innerHTML = `${del}<div class="name">${sc.name}${tag}</div>` +
       `<div class="goal">${sc.goal}</div>`;
     el.onclick = (e) => {
       if (e.target.classList.contains('cs-del')) return;
