@@ -478,14 +478,30 @@ def _test_bailian() -> dict:
         return {"ok": False, "msg": str(e)[:140]}
 
 
+def _ssl_context():
+    """SPEAKMATE_HTTPS=1 时开自签 HTTPS(Android WebView 录音需安全上下文)。
+
+    adhoc 需 cryptography;缺包时降级 HTTP 并给出可操作提示,而非启动崩溃。
+    """
+    if not os.getenv("SPEAKMATE_HTTPS"):
+        return None
+    try:
+        import cryptography  # noqa: F401  adhoc 自签证书依赖
+        return "adhoc"
+    except ImportError:
+        print("[警告] SPEAKMATE_HTTPS 需要 cryptography:`pip install cryptography`;"
+              "当前缺包,降级为 HTTP(Android WebView 录音将不可用)")
+        return None
+
+
 if __name__ == "__main__":
     # 默认 5001:macOS 上 5000 被 ControlCenter(AirPlay)占用
     port = int(os.getenv("PORT", "5001"))
     host = os.getenv("HOST", "127.0.0.1")  # 供手机访问设 0.0.0.0
-    # Android WebView 录音需安全上下文 → SPEAKMATE_HTTPS=1 开自签 HTTPS(需 cryptography)
-    ssl_ctx = "adhoc" if os.getenv("SPEAKMATE_HTTPS") else None
+    ssl_ctx = _ssl_context()
     scheme = "https" if ssl_ctx else "http"
     print("== SpeakMate ==",
-          {"llm_live": ai.llm_live, "pron_live": ai.pron_live, "asr_live": ai.asr_live},
+          {"llm_live": ai.llm_live, "tts_live": ai.tts_live,
+           "pron_live": ai.pron_live, "asr_live": ai.asr_live},
           f"{scheme}://{host}:{port}")
     app.run(host=host, port=port, threaded=True, ssl_context=ssl_ctx)
