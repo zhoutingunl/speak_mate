@@ -308,6 +308,9 @@ class AIService:                       # ai/service.py(实际签名)
 - **流式回复**:`reply_stream` 追加用户发言→流式产出 AI 回复→写回历史。
 - 显式会话状态机为**未实现**(原 init→speaking→… 设想未落地)。
 
+> **已知限制(单进程取舍,有意为之)**:当次会话的纠错累积 `_corrections`、发音分 `_pron_scores` 与会话历史一样**存进程内存**(`app.py` 的 dict / `SessionStore`);**长期画像才入 SQLite**(`user_skill` 等)。这是"长期数据持久、当次会话临时"的分层。
+> 后果:进程重启/多 worker 部署时当次会话(连同累积)会丢——但因会话历史本就在内存,重启后该会话整体失效(`/api/report` 会 404),**单独持久化累积无实际收益**。若要支持多 worker,正确做法是**把整个会话(含消息)落库**,而非只持久化累积;本期为单进程 demo(`USER_ID=1` 单租户),不做此改造。
+
 ---
 
 ## 12. 发音评测设计(Azure 音素级)
@@ -691,4 +694,4 @@ DASHSCOPE_API_KEY=replace-me
 - [x] 所有改动经 Feature Branch → PR → Merge(20 个 PR);CI 绿
 - [x] 无密钥入库(.env / 设置页存库,提交前扫描)
 
-**未实现(预留,已在各节标注)**:Hermes 兜底、自适应专项推荐、连续语音(VAD)、barge-在、在线 A/B。
+**未实现(预留,已在各节标注)**:Hermes 兜底、自适应专项推荐、连续语音(VAD)、barge-in、在线 A/B、多 worker/整会话持久化(当前单进程,见 §11 已知限制)。
