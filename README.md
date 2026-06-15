@@ -36,7 +36,7 @@
 | TTS(AI 开口) | MiniMax 流式 TTS(WebSocket) |
 | ASR(用户语音→文本) | 浏览器 Web Speech API(Chrome/Edge 主) + 百炼 Paraformer 兜底(Safari/Firefox 默认,Chrome 可选) |
 | 发音评测 | Azure Pronunciation Assessment(音素级 GOP) |
-| 后端 | Python 3.11 + Flask + gevent + SQLite |
+| 后端 | Python 3.11 + Flask(REST + SSE) + SQLite |
 
 ## 快速开始
 
@@ -95,8 +95,9 @@ python scripts/selfplay.py interview 4 2 A2   # 场景 轮数 难度 学习者�
 
 本项目开发中使用了 AI 辅助工具(Claude Code 等),如实声明:
 
-- **运行时 AI 能力**:对话/纠错/总结 = MiniMax(主)/ Hermes(兜底);TTS = MiniMax 流式;
-  ASR = 浏览器 Web Speech API;发音评测 = Azure Pronunciation Assessment。
+- **运行时 AI 能力**:对话/纠错/总结 = MiniMax;TTS = MiniMax 流式(多音色/多语言);
+  ASR = 浏览器 Web Speech API + 百炼 Paraformer 兜底(非 Chrome);发音评测 = Azure Pronunciation Assessment。
+  **任一外部失败自动降级 Mock/规则,不抛 500**(Hermes 兜底为预留接口,尚未实现)。
 - **选型有据**:发音评测最初设想用 MiniMax 多模态,经**实测确认其聊天端点收不到音频、
   且无发音评测产品**后改接 Azure(音素级)。决策与证据见 `design.md` §9/§12。
 - **承诺**:提交的功能均可运行、测试真实通过;README/demo 所述能力与代码一致,
