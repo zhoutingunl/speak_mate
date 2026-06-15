@@ -139,7 +139,7 @@ def transcribe():
 def scenarios():
     return jsonify([
         {"key": s.key, "name": s.name, "goal": s.goal, "opening": s.opening,
-         "custom": s.custom}
+         "custom": s.custom, "generated_by": s.generated_by}
         for s in SCENARIOS.values()
     ])
 
@@ -153,14 +153,14 @@ def add_scenario():
     if not name:
         return jsonify({"error": "缺少场景名称"}), 400
 
-    role, goal, opening = _generate_scenario(name, desc)
+    role, goal, opening, generated_by = _generate_scenario(name, desc)
     key = "custom_" + uuid.uuid4().hex[:8]
-    db.add_custom_scenario(key, name, role, goal, opening)
+    db.add_custom_scenario(key, name, role, goal, opening, generated_by)
     sc = Scenario(key=key, name=name, role=role, goal=goal, opening=opening,
-                  custom=True)
+                  custom=True, generated_by=generated_by)
     scenarios_mod.register(sc)
     return jsonify({"key": key, "name": name, "goal": goal, "opening": opening,
-                    "custom": True})
+                    "custom": True, "generated_by": generated_by})
 
 
 @app.delete("/api/scenarios/<key>")
@@ -173,8 +173,8 @@ def delete_scenario(key):
     return jsonify({"ok": True})
 
 
-def _generate_scenario(name: str, desc: str) -> tuple[str, str, str]:
-    """LLM 生成 role/goal/opening;失败则给合理兜底。"""
+def _generate_scenario(name: str, desc: str) -> tuple[str, str, str, str]:
+    """LLM 生成 role/goal/opening;失败则给默认模板。返回末位为 generated_by。"""
     prompt = (
         "Design an English speaking-practice role-play scenario. "
         f"Scenario name: {name}\n"
@@ -189,11 +189,14 @@ def _generate_scenario(name: str, desc: str) -> tuple[str, str, str]:
             ai.chat([ChatMessage("user", prompt)], max_tokens=3072)) or {}
     except Exception:
         data = {}
+    # 三项齐全 = LLM 真生成;任一缺失走默认模板 = mock(诚实标注)
+    generated_by = "llm" if (data.get("role") and data.get("goal")
+                             and data.get("opening")) else "mock"
     role = (data.get("role") or f"a helpful partner for: {name}").strip()
     goal = (data.get("goal") or (desc or f"Practice English in: {name}")).strip()
     opening = (data.get("opening")
                or "Hi! Let's practice. Shall we begin?").strip()
-    return role, goal, opening
+    return role, goal, opening, generated_by
 
 
 @app.post("/api/session")
